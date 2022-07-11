@@ -1,0 +1,13 @@
+cradle:
+  stack:
+    - path: "./src"
+      component: "midiot:lib"
+
+    - path: "./exe/Main.hs"
+      component: "midiot:exe:midiot-exe"
+
+    - path: "./exe/Paths_midiot.hs"
+      component: "midiot:exe:midiot-exe"
+
+    - path: "./test"
+      component: "midiot:test:midiot-test"
