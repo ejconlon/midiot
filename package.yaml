@@ -15,10 +15,18 @@ description: Please see the README on GitHub at <https://github.com/ejconlon/mid
 
 dependencies:
 - base >= 4.12 && < 5
+- dahdit >= 0.1 && < 0.2
+- bytestring
+- containers
+- primitive
+- vector
+- hashable
+- deepseq
 
 default-extensions:
 - BangPatterns
 - ConstraintKinds
+- DataKinds
 - DeriveFunctor
 - DeriveFoldable
 - DeriveGeneric
@@ -33,6 +41,7 @@ default-extensions:
 - LambdaCase
 - KindSignatures
 - MultiParamTypeClasses
+- MultiWayIf
 - Rank2Types
 - ScopedTypeVariables
 - StandaloneDeriving

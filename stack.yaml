@@ -5,3 +5,7 @@ ghc-options:
 
 packages:
 - .
+
+extra-deps:
+- git: git@github.com:ejconlon/dahdit.git
+  commit: 5cde80d4ec818bcbc9a42b677e40f94bfb6a7d0c

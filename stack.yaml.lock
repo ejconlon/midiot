@@ -3,7 +3,18 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    name: dahdit
+    version: 0.1.0
+    git: git@github.com:ejconlon/dahdit.git
+    pantry-tree:
+      size: 1484
+      sha256: 9ddd521f54f40035f79b4e83e6ed89861f8ad756becca54a8b53af33aab8ecba
+    commit: 5cde80d4ec818bcbc9a42b677e40f94bfb6a7d0c
+  original:
+    git: git@github.com:ejconlon/dahdit.git
+    commit: 5cde80d4ec818bcbc9a42b677e40f94bfb6a7d0c
 snapshots:
 - completed:
     size: 618952
