@@ -1,4 +1,4 @@
-resolver: lts-19.15
+resolver: lts-20.17
 
 ghc-options:
   "$everything": -haddock
@@ -7,5 +7,5 @@ packages:
 - .
 
 extra-deps:
-- git: git@github.com:ejconlon/dahdit.git
-  commit: 5cde80d4ec818bcbc9a42b677e40f94bfb6a7d0c
+- dahdit-0.1.2
+- data-sword-0.2.0.3

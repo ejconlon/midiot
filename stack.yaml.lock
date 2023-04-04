@@ -5,19 +5,22 @@
 
 packages:
 - completed:
-    name: dahdit
-    version: 0.1.0
-    git: git@github.com:ejconlon/dahdit.git
+    hackage: dahdit-0.1.2@sha256:35410bf474000b18b8c43ec6dd392f97be453fa48fa90a0d3c580405675a2fa8,3346
     pantry-tree:
-      size: 1484
-      sha256: 9ddd521f54f40035f79b4e83e6ed89861f8ad756becca54a8b53af33aab8ecba
-    commit: 5cde80d4ec818bcbc9a42b677e40f94bfb6a7d0c
+      sha256: a0c031826c5163c0e2bbffe386e57e593492c492f981a747cf9853a7f88b9ab6
+      size: 1037
   original:
-    git: git@github.com:ejconlon/dahdit.git
-    commit: 5cde80d4ec818bcbc9a42b677e40f94bfb6a7d0c
+    hackage: dahdit-0.1.2
+- completed:
+    hackage: data-sword-0.2.0.3@sha256:953cca4b4533a388df0ef17e06ac5530652d1d73decfe8b656242ccdf4b40999,1568
+    pantry-tree:
+      sha256: 60a104a3d3cbba2e099a9e7ce561322b2884f5323cf74fd876dfb59f265d803c
+      size: 439
+  original:
+    hackage: data-sword-0.2.0.3
 snapshots:
 - completed:
-    size: 618952
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/19/15.yaml
-    sha256: 82e5ccb47b068521de4055034e8aa278eab430b586881d9cc29ba8b382ce3253
-  original: lts-19.15
+    sha256: 14ca51a9a597c32dd7804c10d079feea3d0ae40c5fbbb346cbd67b3ae49f6d01
+    size: 649598
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/17.yaml
+  original: lts-20.17
