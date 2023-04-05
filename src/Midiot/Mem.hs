@@ -1,13 +1,20 @@
 module Midiot.Mem
   ( sbsToVec
   , vecToSbs
-  ) where
+  )
+where
 
 import Control.Monad.ST.Strict (runST)
 import Data.ByteString.Short.Internal (ShortByteString (..))
 import Data.Foldable (for_)
-import Data.Primitive.ByteArray (ByteArray (..), indexByteArray, newByteArray, sizeofByteArray, unsafeFreezeByteArray,
-                                 writeByteArray)
+import Data.Primitive.ByteArray
+  ( ByteArray (..)
+  , indexByteArray
+  , newByteArray
+  , sizeofByteArray
+  , unsafeFreezeByteArray
+  , writeByteArray
+  )
 import qualified Data.Vector.Storable as VS
 import Data.Word (Word8)
 
@@ -22,9 +29,9 @@ createByteArray sz f = runST $ do
 vecToSbs :: VS.Vector Word8 -> ShortByteString
 vecToSbs vec =
   let !(ByteArray arrHash) = createByteArray (VS.length vec) (vec VS.!)
-  in SBS arrHash
+  in  SBS arrHash
 
 sbsToVec :: ShortByteString -> VS.Vector Word8
 sbsToVec (SBS arrHash) =
   let !arr = ByteArray arrHash
-  in VS.generate (sizeofByteArray arr) (indexByteArray arr)
+  in  VS.generate (sizeofByteArray arr) (indexByteArray arr)

@@ -5,9 +5,9 @@ import Test.Tasty.HUnit (testCase, (@?=))
 
 testSimple :: TestTree
 testSimple = testCase "simple" $ do
-    let actual = (1 + 1) :: Int
-        expected = 2 :: Int
-    actual @?= expected
+  let actual = (1 + 1) :: Int
+      expected = 2 :: Int
+  actual @?= expected
 
 main :: IO ()
 main = defaultMain (testGroup "Midiot" [testSimple])

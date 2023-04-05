@@ -2,6 +2,7 @@
 
 -- -- | Many of the codec details are lifted from hmidi (see README for license and attribution).
 module Midiot.Codec where
+
 --   ( decodeEvent
 --   , decodeMsg
 --   , encodeMsg

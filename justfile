@@ -26,24 +26,7 @@ docs:
 
 # Install tool deps
 deps:
-  #!/bin/bash
-  set -eux
-  # Install simple deps
   stack build --copy-compiler-tool hlint fourmolu
-  # Install haskell-ci
-  if ! command -v haskell-ci &> /dev/null
-  then
-    rm -rf /tmp/haskell-ci && cd /tmp
-    git clone git@github.com:haskell-CI/haskell-ci.git
-    cd haskell-ci
-    cabal install haskell-ci
-    cd .. && rm -rf haskell-ci
-  fi
-
-# Generate Haskell CI config
-gen-ci:
-  stack setup
-  haskell-ci github midiot.cabal
 
 # Format with fourmolu
 format:

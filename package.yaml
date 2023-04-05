@@ -8,8 +8,6 @@ copyright:           "(c) 2022 Eric Conlon"
 # category:            Undefined
 # synopsis:            Undefined
 
-tested-with: GHC == 9.2.7
-
 extra-source-files:
 - README.md
 
