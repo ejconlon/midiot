@@ -59,8 +59,6 @@ ghc-options:
 - -Wpartial-fields
 - -Wredundant-constraints
 - -fno-warn-unused-top-binds
-- -fwrite-ide-info
-- -hiedir=.hie
 
 library:
   source-dirs: src
