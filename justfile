@@ -1,4 +1,5 @@
 stack_build := "stack build --fast"
+src_dirs := "src test exe"
 
 # No default tasks
 default:
@@ -30,11 +31,11 @@ deps:
 
 # Format with fourmolu
 format:
-  stack exec -- fourmolu --mode inplace src test exe
+  stack exec -- fourmolu --mode inplace {{ src_dirs }}
 
 # Lint with hlint
 lint:
-  stack exec -- hlint src test exe
+  stack exec -- hlint {{ src_dirs }}
 
 # Run the executable
 exe:
