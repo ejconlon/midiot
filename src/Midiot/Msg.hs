@@ -14,9 +14,8 @@ module Midiot.Msg
   , noteOff
   , ChanVoiceMsg (..)
   , ChanVoiceMsgData (..)
-  , MidiMsg (..)
-  -- , MidiEvent (..)
-  , MidiParsed (..)
+  , Msg (..)
+  , MidiEvent (..)
   )
 where
 
@@ -113,10 +112,10 @@ data QuarterTime = QuarterTime
   deriving (ByteSized, StaticByteSized, Binary) via (ViaStaticGeneric QuarterTime)
   deriving anyclass (NFData)
 
-noteOn :: Channel -> Note -> Velocity -> MidiMsg
-noteOn c k v = ParsedMidiMsg (MidiChanVoice (ChanVoiceMsg c (ChanVoiceNoteOnOff k v)))
+noteOn :: Channel -> Note -> Velocity -> Msg
+noteOn c k v = MsgChanVoice (ChanVoiceMsg c (ChanVoiceNoteOnOff k v))
 
-noteOff :: Channel -> Note -> MidiMsg
+noteOff :: Channel -> Note -> Msg
 noteOff c k = noteOn c k 0
 
 data ChanVoiceMsgData
@@ -147,26 +146,26 @@ instance Binary SysexString where
 
 -- TODO(ejconlon) Implement ChannelMode message
 -- https://www.midi.org/specifications/item/table-1-summary-of-midi-message
-data MidiParsed
-  = MidiChanVoice !ChanVoiceMsg
-  | MidiSysex !Manf !SysexString
-  | MidiQuarterFrame !QuarterTime
-  | MidiSongPosition !Position
-  | MidiSongSelect !Song
-  | MidiTuneRequest
-  | MidiSRTClock
-  | MidiSRTStart
-  | MidiSRTContinue
-  | MidiSRTStop
-  | MidiActiveSensing
-  | MidiReset
+data Msg
+  = MsgChanVoice !ChanVoiceMsg
+  | MsgSysex !Manf !SysexString
+  | MsgQuarterFrame !QuarterTime
+  | MsgSongPosition !Position
+  | MsgSongSelect !Song
+  | MsgTuneRequest
+  | MsgSRTClock
+  | MsgSRTStart
+  | MsgSRTContinue
+  | MsgSRTStop
+  | MsgActiveSensing
+  | MsgReset
   deriving stock (Eq, Show, Generic)
   deriving anyclass (NFData)
 
-instance ByteSized MidiParsed where
+instance ByteSized Msg where
   byteSize mp =
     1 + case mp of
-      MidiChanVoice (ChanVoiceMsg _ dat) ->
+      MsgChanVoice (ChanVoiceMsg _ dat) ->
         case dat of
           ChanVoiceNoteOnOff _ _ -> 2
           ChanVoicePolyAftertouch _ _ -> 2
@@ -174,25 +173,25 @@ instance ByteSized MidiParsed where
           ChanVoiceProgramChange _ -> 1
           ChanVoiceAftertouch _ -> 1
           ChanVoicePitchWheel _ -> 2
-      MidiSysex _ sbs -> 1 + byteSize sbs
-      MidiQuarterFrame _ -> 1
-      MidiSongPosition _ -> 2
-      MidiSongSelect _ -> 1
-      MidiTuneRequest -> 0
-      MidiSRTClock -> 0
-      MidiSRTStart -> 0
-      MidiSRTContinue -> 0
-      MidiSRTStop -> 0
-      MidiActiveSensing -> 0
-      MidiReset -> 0
+      MsgSysex _ sbs -> 1 + byteSize sbs
+      MsgQuarterFrame _ -> 1
+      MsgSongPosition _ -> 2
+      MsgSongSelect _ -> 1
+      MsgTuneRequest -> 0
+      MsgSRTClock -> 0
+      MsgSRTStart -> 0
+      MsgSRTContinue -> 0
+      MsgSRTStop -> 0
+      MsgActiveSensing -> 0
+      MsgReset -> 0
 
-instance Binary MidiParsed where
+instance Binary Msg where
   get = do
     x <- get @Word8
     undefined
 
   put = \case
-    MidiChanVoice (ChanVoiceMsg c dat) ->
+    MsgChanVoice (ChanVoiceMsg c dat) ->
       let d = fromIntegral (unChannel c) :: Word8
       in  case dat of
             ChanVoiceNoteOnOff n v -> do
@@ -216,45 +215,30 @@ instance Binary MidiParsed where
             ChanVoicePitchWheel pb -> do
               put (d .|. 0xE0)
               put pb
-    MidiSysex m ss -> do
+    MsgSysex m ss -> do
       put @Word8 0xF0
       put m
       put ss
-    MidiQuarterFrame qt -> do
+    MsgQuarterFrame qt -> do
       put @Word8 0xF1
       put qt
-    MidiSongPosition p -> do
+    MsgSongPosition p -> do
       put @Word8 0xF2
       put p
-    MidiSongSelect s -> do
+    MsgSongSelect s -> do
       put @Word8 0xF3
       put s
-    MidiTuneRequest -> put @Word8 0xF6
-    MidiSRTClock -> put @Word8 0xF8
-    MidiSRTStart -> put @Word8 0xFA
-    MidiSRTContinue -> put @Word8 0xFB
-    MidiSRTStop -> put @Word8 0xFC
-    MidiActiveSensing -> put @Word8 0xFE
-    MidiReset -> put @Word8 0xFF
-
-data MidiMsg
-  = UnparsedMidiMsg !ShortByteString
-  | ParsedMidiMsg !MidiParsed
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (NFData)
-
-instance ByteSized MidiMsg where
-  byteSize = \case
-    UnparsedMidiMsg sbs -> byteSize sbs
-    ParsedMidiMsg mp -> byteSize mp
-
-instance Binary MidiMsg where
-  get = error "TODO"
-  put = error "TODO"
+    MsgTuneRequest -> put @Word8 0xF6
+    MsgSRTClock -> put @Word8 0xF8
+    MsgSRTStart -> put @Word8 0xFA
+    MsgSRTContinue -> put @Word8 0xFB
+    MsgSRTStop -> put @Word8 0xFC
+    MsgActiveSensing -> put @Word8 0xFE
+    MsgReset -> put @Word8 0xFF
 
 data MidiEvent = MidiEvent
   { meTimeDelta :: !VarInt
-  , meMessage :: !MidiMsg
+  , meMessage :: !Msg
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (NFData)
