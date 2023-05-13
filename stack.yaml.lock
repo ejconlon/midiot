@@ -5,22 +5,40 @@
 
 packages:
 - completed:
-    hackage: dahdit-0.1.2@sha256:35410bf474000b18b8c43ec6dd392f97be453fa48fa90a0d3c580405675a2fa8,3346
+    hackage: dahdit-0.3.0@sha256:2a03ddd73686a97452883b7de3910a117d2d29faede349d155e54d4538e7e911,3536
     pantry-tree:
-      sha256: a0c031826c5163c0e2bbffe386e57e593492c492f981a747cf9853a7f88b9ab6
-      size: 1037
+      sha256: 1b265e95f06d86c45bbb415029bdf092d121d3126a211c1c2584b6275857a610
+      size: 1240
   original:
-    hackage: dahdit-0.1.2
+    hackage: dahdit-0.3.0
 - completed:
-    hackage: data-sword-0.2.0.3@sha256:953cca4b4533a388df0ef17e06ac5530652d1d73decfe8b656242ccdf4b40999,1568
+    commit: 45406c35878d0f3efc4cf29b4f3f2182391bc27c
+    git: git@github.com:ejconlon/data-sword.git
+    name: data-sword
     pantry-tree:
-      sha256: 60a104a3d3cbba2e099a9e7ce561322b2884f5323cf74fd876dfb59f265d803c
-      size: 439
+      sha256: fb466911a26b1fe3a5f7ca96141b20c282a4f2151de281d7a97f84f96abc58a7
+      size: 552
+    version: 0.2.0.4
   original:
-    hackage: data-sword-0.2.0.3
+    commit: 45406c35878d0f3efc4cf29b4f3f2182391bc27c
+    git: git@github.com:ejconlon/data-sword.git
+- completed:
+    hackage: primitive-0.8.0.0@sha256:826bf2a702a26ef87532a135808abad69d74f70ead39f26c06d034b1f0537a19,3104
+    pantry-tree:
+      sha256: eaf8b0689d5a3cbc38b5a5b4bf665ec5822ad0060e8876b26bf6f13b9741295a
+      size: 1721
+  original:
+    hackage: primitive-0.8.0.0
+- completed:
+    hackage: RtMidi-0.6.1.0@sha256:8c9694126352ae2b8935554ff25a4f2d8541ec0f39805300c4ca9fd0620604ef,3806
+    pantry-tree:
+      sha256: 406147390d64947da0062a10837108797d0be59cf3157b4e375fa66cd3490e67
+      size: 860
+  original:
+    hackage: RtMidi-0.6.1.0
 snapshots:
 - completed:
-    sha256: 14ca51a9a597c32dd7804c10d079feea3d0ae40c5fbbb346cbd67b3ae49f6d01
-    size: 649598
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/17.yaml
-  original: lts-20.17
+    sha256: 126fa33ceb11f5e85ceb4e86d434756bd9a8439e2e5776d306a15fbc63b01e89
+    size: 650041
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/20.yaml
+  original: lts-20.20

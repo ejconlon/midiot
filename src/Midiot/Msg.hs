@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DerivingVia #-}
 
 module Midiot.Msg
   ( Channel (..)
@@ -21,98 +22,96 @@ where
 
 import Control.DeepSeq (NFData)
 -- import Midiot.Time (TimeDelta)
-import Control.Monad (unless)
-import Dahdit (Binary (..), BinaryRep (..), ByteSized (..), ExactBytes, StaticByteSized (..), ViaBinaryRep (..), ViaGeneric (..), Word16LE, byteSizeFoldable, putWord8)
+import Dahdit (Binary (..), BinaryRep (..), ByteSized (..), ExactBytes, StaticByteSized (..), ViaBinaryRep (..), ViaBoundedEnum (..), ViaGeneric (..), ViaStaticGeneric (..), Word16LE, byteSizeFoldable)
 import Data.Bits (Bits (..))
 import Data.ByteString.Short (ShortByteString)
 import qualified Data.ByteString.Short as BSS
 import Data.Hashable (Hashable)
-import Data.Int (Int16)
 import Data.Sequence (Seq)
 import Data.String (IsString)
-import Data.Word (Word16, Word32, Word8)
+import Data.Word (Word8)
 import GHC.Generics (Generic)
+import Midiot.Binary (BoundsCheck (..), MidiInt14 (..), MidiWord14 (..), MidiWord7 (..), VarInt (..))
 
-newtype Channel = Channel {unChannel :: Word8}
+newtype Channel = Channel {unChannel :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized)
+  deriving (Binary) via (BoundsCheck "Channel" Channel)
 
-newtype Note = Note {unNote :: Word8}
-  deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+instance Bounded Channel where
+  minBound = 0
+  maxBound = 15
 
-newtype Velocity = Velocity {unVelocity :: Word8}
+newtype Note = Note {unNote :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
 
-newtype ControlNum = ControlNum {unControlNum :: Word8}
+newtype Velocity = Velocity {unVelocity :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
 
-newtype ControlVal = ControlVal {unControlVal :: Word8}
+newtype ControlNum = ControlNum {unControlNum :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
 
-newtype Pressure = Pressure {unPressure :: Word8}
+newtype ControlVal = ControlVal {unControlVal :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
 
-newtype ProgramNum = ProgramNum {unProgramNum :: Word8}
+newtype Pressure = Pressure {unPressure :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
 
-newtype PitchBend = PitchBend {unPitchBend :: Int16}
+newtype ProgramNum = ProgramNum {unProgramNum :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
 
-newtype Song = Song {unSong :: Word8}
+newtype PitchBend = PitchBend {unPitchBend :: MidiInt14}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
 
-newtype Position = Position {unPosition :: Word16}
+newtype Song = Song {unSong :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
 
-newtype Manf = Manf {unManf :: Word8}
+newtype Position = Position {unPosition :: MidiWord14}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Num, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+
+newtype Manf = Manf {unManf :: MidiWord7}
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
 
 eduManf :: Manf
 eduManf = Manf 0x7D
 
-data QuarterTime
-  = QTFramesLow !Word8
-  | QTFramesHigh !Word8
-  | QTSecondsLow !Word8
-  | QTSecondsHigh !Word8
-  | QTMinutesLow !Word8
-  | QTMinutesHigh !Word8
-  | QTHoursLow !Word8
-  | QTHoursHigh !Word8
-  deriving stock (Eq, Show, Generic)
+data QuarterTimeKey
+  = QTKFramesLow
+  | QTKFramesHigh
+  | QTKSecondsLow
+  | QTKSecondsHigh
+  | QTKMinutesLow
+  | QTKMinutesHigh
+  | QTKHoursLow
+  | QTKHoursHigh
+  deriving stock (Eq, Ord, Show, Enum, Bounded, Generic)
+  deriving (BinaryRep MidiWord7) via (ViaBoundedEnum MidiWord7 QuarterTimeKey)
+  deriving (Binary) via (ViaBinaryRep QuarterTimeKey)
   deriving anyclass (NFData)
 
-quarterTimeKey :: QuarterTime -> Word8
-quarterTimeKey = \case
-  QTFramesLow _ -> 0x0
-  QTFramesHigh _ -> 0x1
-  QTSecondsLow _ -> 0x2
-  QTSecondsHigh _ -> 0x3
-  QTMinutesLow _ -> 0x4
-  QTMinutesHigh _ -> 0x5
-  QTHoursLow _ -> 0x6
-  QTHoursHigh _ -> 0x7
+instance ByteSized QuarterTimeKey where
+  byteSize _ = 1
 
-quarterTimeValue :: QuarterTime -> Word8
-quarterTimeValue = \case
-  QTFramesLow w -> w
-  QTFramesHigh w -> w
-  QTSecondsLow w -> w
-  QTSecondsHigh w -> w
-  QTMinutesLow w -> w
-  QTMinutesHigh w -> w
-  QTHoursLow w -> w
-  QTHoursHigh w -> w
+instance StaticByteSized QuarterTimeKey where
+  staticByteSize _ = 1
+
+data QuarterTime = QuarterTime
+  { qtKey :: !QuarterTimeKey
+  , qtVal :: !MidiWord7
+  }
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (ByteSized, StaticByteSized, Binary) via (ViaStaticGeneric QuarterTime)
+  deriving anyclass (NFData)
 
 noteOn :: Channel -> Note -> Velocity -> MidiMsg
 noteOn c k v = ParsedMidiMsg (MidiChanVoice (ChanVoiceMsg c (ChanVoiceNoteOnOff k v)))
@@ -193,54 +192,50 @@ instance Binary MidiParsed where
     undefined
 
   put = \case
-    MidiChanVoice (ChanVoiceMsg (Channel c) dat) ->
-      let !d = min 15 c
+    MidiChanVoice (ChanVoiceMsg c dat) ->
+      let d = fromIntegral (unChannel c) :: Word8
       in  case dat of
-            ChanVoiceNoteOnOff (Note n) (Velocity v) -> do
-              putWord8 (d .|. 0x90)
-              putWord8 (min 127 n)
-              putWord8 (min 127 v)
-            ChanVoicePolyAftertouch (Note n) (Pressure p) -> do
-              putWord8 (d .|. 0xA0)
-              putWord8 (min 127 n)
-              putWord8 (min 127 p)
-            ChanVoiceCC (ControlNum cn) (ControlVal cv) -> do
-              putWord8 (d .|. 0xB0)
-              putWord8 (min 127 cn)
-              putWord8 (min 127 cv)
-            ChanVoiceProgramChange (ProgramNum pn) -> do
-              putWord8 (d .|. 0xC0)
-              putWord8 (min 127 pn)
-            ChanVoiceAftertouch (Pressure p) -> do
-              putWord8 (d .|. 0xD0)
-              putWord8 (min 127 p)
-            ChanVoicePitchWheel (PitchBend pb) -> do
-              putWord8 (d .|. 0xE0)
-              let !w = min 16383 (max 0 (pb + 8192))
-              putWord8 (fromIntegral w .|. 0x7)
-              putWord8 (min 127 (fromIntegral (shiftR w 7)))
-    MidiSysex (Manf m) ss -> do
-      putWord8 0xF0
-      putWord8 (min 127 m)
+            ChanVoiceNoteOnOff n v -> do
+              put (d .|. 0x90)
+              put n
+              put v
+            ChanVoicePolyAftertouch n p -> do
+              put (d .|. 0xA0)
+              put n
+              put p
+            ChanVoiceCC cn cv -> do
+              put (d .|. 0xB0)
+              put cn
+              put cv
+            ChanVoiceProgramChange pn -> do
+              put (d .|. 0xC0)
+              put pn
+            ChanVoiceAftertouch p -> do
+              put (d .|. 0xD0)
+              put p
+            ChanVoicePitchWheel pb -> do
+              put (d .|. 0xE0)
+              put pb
+    MidiSysex m ss -> do
+      put @Word8 0xF0
+      put m
       put ss
     MidiQuarterFrame qt -> do
-      putWord8 0xF1
-      putWord8 (quarterTimeKey qt)
-      putWord8 (min 127 (quarterTimeValue qt))
-    MidiSongPosition (Position p) -> do
-      putWord8 0xF2
-      putWord8 (fromIntegral p .|. 0x7)
-      putWord8 (min 127 (fromIntegral (shiftR p 7)))
-    MidiSongSelect (Song s) -> do
-      putWord8 0xF3
-      putWord8 (min 127 s)
-    MidiTuneRequest -> putWord8 0xF6
-    MidiSRTClock -> putWord8 0xF8
-    MidiSRTStart -> putWord8 0xFA
-    MidiSRTContinue -> putWord8 0xFB
-    MidiSRTStop -> putWord8 0xFC
-    MidiActiveSensing -> putWord8 0xFE
-    MidiReset -> putWord8 0xFF
+      put @Word8 0xF1
+      put qt
+    MidiSongPosition p -> do
+      put @Word8 0xF2
+      put p
+    MidiSongSelect s -> do
+      put @Word8 0xF3
+      put s
+    MidiTuneRequest -> put @Word8 0xF6
+    MidiSRTClock -> put @Word8 0xF8
+    MidiSRTStart -> put @Word8 0xFA
+    MidiSRTContinue -> put @Word8 0xFB
+    MidiSRTStop -> put @Word8 0xFC
+    MidiActiveSensing -> put @Word8 0xFE
+    MidiReset -> put @Word8 0xFF
 
 data MidiMsg
   = UnparsedMidiMsg !ShortByteString
@@ -256,38 +251,6 @@ instance ByteSized MidiMsg where
 instance Binary MidiMsg where
   get = error "TODO"
   put = error "TODO"
-
-newtype VarInt = VarInt {unVarInt :: Word32}
-  deriving stock (Show)
-  deriving newtype (Eq, NFData, Hashable)
-
-instance ByteSized VarInt where
-  byteSize (VarInt w) =
-    if
-        | w .&. 0xFFFFFF80 == 0 -> 1
-        | w .&. 0xFFFFC000 == 0 -> 2
-        | w .&. 0xFFE00000 == 0 -> 3
-        | otherwise -> 4
-
-instance Binary VarInt where
-  get = go 0 0
-   where
-    go !off !acc = do
-      w <- get @Word8
-      let !wLow = fromIntegral (w .&. 0x7F)
-          !wShift = shiftL wLow off
-          !accNext = acc .|. wShift
-      if w .&. 0x80 == 0
-        then pure $! VarInt accNext
-        else go (off + 7) accNext
-
-  put (VarInt acc) = go acc
-   where
-    go !w = do
-      let !wLow = fromIntegral (w .&. 0x7F)
-          !wShift = shiftR w 7
-      putWord8 wLow
-      unless (wShift == 0) (go wShift)
 
 data MidiEvent = MidiEvent
   { meTimeDelta :: !VarInt
