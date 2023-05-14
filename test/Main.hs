@@ -5,7 +5,7 @@ import qualified Data.ByteString.Short as BSS
 import Data.Foldable (for_)
 import Data.Proxy (Proxy (..))
 import Midiot.Arb (Arb (..))
-import Midiot.Msg (Channel, Note)
+import Midiot.Msg -- (Channel, Note)
 import Test.Falsify.Generator (Gen)
 import qualified Test.Falsify.Predicate as FR
 import qualified Test.Falsify.Property as FP
@@ -48,6 +48,22 @@ rtCases :: [RTCase]
 rtCases =
   [ staRTCase "Channel" (arb @Channel)
   , staRTCase "Note" (arb @Note)
+  , staRTCase "Velocity" (arb @Velocity)
+  , staRTCase "ControlNum" (arb @ControlNum)
+  , staRTCase "ControlVal" (arb @ControlVal)
+  , staRTCase "Pressure" (arb @Pressure)
+  , staRTCase "ProgramNum" (arb @ProgramNum)
+  , staRTCase "PitchBend" (arb @PitchBend)
+  , staRTCase "Song" (arb @Song)
+  , staRTCase "Position" (arb @Position)
+  , staRTCase "Manf" (arb @Manf)
+  , staRTCase "QuarterTimeKey" (arb @QuarterTimeKey)
+  , staRTCase "QuarterTime" (arb @QuarterTime)
+  -- , dynRTCase "ChanVoiceMsgData" (arb @ChanVoiceMsgData)
+  -- , dynRTCase "ChanVoiceMsg" (arb @ChanVoiceMsg)
+  -- , dynRTCase "SysexString" (arb @SysexString)
+  -- , dynRTCase "Msg" (arb @Msg)
+  -- , dynRTCase "Event" (arb @Event)
   ]
 
 testRTCases :: TestTree

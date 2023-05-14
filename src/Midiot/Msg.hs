@@ -10,12 +10,18 @@ module Midiot.Msg
   , Pressure (..)
   , ProgramNum (..)
   , PitchBend (..)
+  , Song (..)
+  , Position (..)
+  , Manf (..)
+  , QuarterTimeKey (..)
+  , QuarterTime (..)
   , noteOn
   , noteOff
   , ChanVoiceMsg (..)
   , ChanVoiceMsgData (..)
+  , SysexString (..)
   , Msg (..)
-  , MidiEvent (..)
+  , Event (..)
   )
 where
 
@@ -248,13 +254,13 @@ instance Binary Msg where
     MsgActiveSensing -> put @Word8 0xFE
     MsgReset -> put @Word8 0xFF
 
-data MidiEvent = MidiEvent
-  { meTimeDelta :: !VarWord
-  , meMessage :: !Msg
+data Event = Event
+  { evTimeDelta :: !VarWord
+  , evMessage :: !Msg
   }
   deriving stock (Eq, Show, Generic)
-  deriving (ByteSized, Binary) via (ViaGeneric MidiEvent)
-  deriving (Arb) via (ArbGeneric MidiEvent)
+  deriving (ByteSized, Binary) via (ViaGeneric Event)
+  deriving (Arb) via (ArbGeneric Event)
   deriving anyclass (NFData)
 
 -- -- TODO finish this
@@ -263,70 +269,70 @@ data MidiEvent = MidiEvent
 --   } deriving stock (Eq, Show, Generic)
 --     deriving (ByteSized, StaticByteSized, Binary) via (ViaStaticGeneric MidiTrackHeader)
 
-newtype MidiRun = MidiRun {unMidiRun :: Seq MidiEvent}
+newtype Run = Run {unRun :: Seq Event}
   deriving stock (Show)
   deriving newtype (Eq, NFData)
 
-instance Arb MidiRun where
+instance Arb Run where
   arb = undefined
 
-instance ByteSized MidiRun where
+instance ByteSized Run where
   byteSize _ = 4 + undefined
 
-instance Binary MidiRun where
+instance Binary Run where
   get = undefined
   put = undefined
 
-data MidiTrack = MidiTrack
-  { mtMagic :: !(ExactBytes "MTrk")
-  , mtRun :: !MidiRun
+data Track = Track
+  { trackMagic :: !(ExactBytes "MTrk")
+  , trackRun :: !Run
   }
   deriving stock (Eq, Show, Generic)
 
 -- deriving (Arb) via (ArbGeneric MidiTrack)
 -- deriving anyclass (NFData)
 
-instance ByteSized MidiTrack where
-  byteSize (MidiTrack _ run) = 4 + byteSize run
+instance ByteSized Track where
+  byteSize (Track _ run) = 4 + byteSize run
 
-instance Binary MidiTrack where
+instance Binary Track where
   get = undefined -- TODO
   put = undefined -- TODO
 
-data MidiFileType
-  = MidiFileTypeSingle
-  | MidiFileTypeMultiSync
-  | MidiFileTypeMultiAsync
+data FileType
+  = FileTypeSingle
+  | FileTypeMultiSync
+  | FileTypeMultiAsync
   deriving stock (Eq, Ord, Enum, Bounded, Show, Generic)
-  deriving (ByteSized, StaticByteSized, Binary) via (ViaBinaryRep MidiFileType)
-  deriving (Arb) via (ArbEnum MidiFileType)
+  deriving (ByteSized, StaticByteSized, Binary) via (ViaBinaryRep FileType)
+  deriving (Arb) via (ArbEnum FileType)
   deriving anyclass (NFData)
 
-instance BinaryRep Word16LE MidiFileType where
+instance BinaryRep Word16LE FileType where
   fromBinaryRep = \case
-    0 -> Right MidiFileTypeSingle
-    1 -> Right MidiFileTypeMultiSync
-    2 -> Right MidiFileTypeMultiAsync
-    other -> Left ("invalid midi file stype: " ++ show other)
+    0 -> Right FileTypeSingle
+    1 -> Right FileTypeMultiSync
+    2 -> Right FileTypeMultiAsync
+    other -> Left ("invalid midi file type: " ++ show other)
   toBinaryRep = \case
-    MidiFileTypeSingle -> 0
-    MidiFileTypeMultiSync -> 1
-    MidiFileTypeMultiAsync -> 2
+    FileTypeSingle -> 0
+    FileTypeMultiSync -> 1
+    FileTypeMultiAsync -> 2
 
-data MidiFile = MidiFile
-  { mfMagic :: !(ExactBytes "MThd\NUL\NUL\NUL\ACK")
-  , mfType :: !MidiFileType
-  , mfTicks :: !Word16LE
-  , mfTracks :: !(Seq MidiTrack)
+data File = File
+  { fileMagic :: !(ExactBytes "MThd\NUL\NUL\NUL\ACK")
+  , fileType :: !FileType
+  , fileTicks :: !Word16LE
+  , fileTracks :: !(Seq Track)
   }
   deriving stock (Eq, Show, Generic)
 
 -- deriving (Arb) via (ArbGeneric MidiTrack)
 -- deriving anyclass (NFData)
 
-instance ByteSized MidiFile where
-  byteSize (MidiFile _ _ _ tracks) = 14 + byteSizeFoldable tracks
+instance ByteSized File where
+  byteSize (File _ _ _ tracks) = 14 + byteSizeFoldable tracks
 
-instance Binary MidiFile where
+instance Binary File where
   get = undefined -- TODO
   put = undefined -- TODO
