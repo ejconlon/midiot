@@ -20,7 +20,7 @@ module Midiot.Msg
 where
 
 import Control.DeepSeq (NFData)
--- import Midiot.Time (TimeDelta)
+import Control.Newtype (Newtype)
 import Dahdit (Binary (..), BinaryRep (..), ByteSized (..), ExactBytes, StaticByteSized (..), ViaBinaryRep (..), ViaBoundedEnum (..), ViaGeneric (..), ViaStaticGeneric (..), Word16LE, byteSizeFoldable)
 import Data.Bits (Bits (..))
 import Data.ByteString.Short (ShortByteString)
@@ -36,8 +36,10 @@ import Midiot.Binary (BoundedBinary (..), MidiInt14 (..), MidiWord14 (..), MidiW
 newtype Channel = Channel {unChannel :: MidiWord7}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized)
-  deriving (Binary) via (BoundedBinary "Channel" Channel)
+  deriving (Binary) via (BoundedBinary "Channel" Channel MidiWord7)
   deriving (Arb) via (ArbEnum Channel)
+
+instance Newtype Channel MidiWord7
 
 instance Bounded Channel where
   minBound = 0

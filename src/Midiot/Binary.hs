@@ -14,6 +14,7 @@ where
 
 import Control.DeepSeq (NFData)
 import Control.Monad (unless)
+import Control.Newtype (Newtype (..))
 import Dahdit (Binary (..), ByteSized (..), StaticByteSized (..), Word16LE (..))
 import Data.Bits (Bits (..))
 import Data.Hashable (Hashable)
@@ -24,15 +25,19 @@ import Data.Word (Word16, Word32, Word8)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Midiot.Arb (Arb (..), ArbSigned (..), ArbUnsigned (..))
 
-newtype BoundedBinary (s :: Symbol) a = BoundedBinary {unBoundedBinary :: a}
+newtype BoundedBinary (s :: Symbol) a b = BoundedBinary {unBoundedBinary :: a}
 
-instance (KnownSymbol s, Bounded a, Binary a, Ord a, Show a) => Binary (BoundedBinary s a) where
+instance
+  (KnownSymbol s, Bounded a, Ord a, Show a, Newtype a b, Binary b)
+  => Binary (BoundedBinary s a b)
+  where
   get = do
-    v <- get
+    w <- get
+    let v = pack w
     if v < minBound || v > maxBound
       then fail (symbolVal (Proxy :: Proxy s) ++ " value out of bounds: " ++ show v)
       else pure (BoundedBinary v)
-  put = put . unBoundedBinary
+  put = put . unpack . unBoundedBinary
 
 newtype MidiWord7 = MidiWord7 {unMidiWord7 :: Word7}
   deriving stock (Show)
@@ -118,7 +123,7 @@ instance Binary MidiInt14 where
   get = fmap (MidiInt14 . fromIntegral . contractW14 . unWord16LE) get
   put = put . Word16LE . expandW14 . fromIntegral . unMidiInt14
 
-newtype VarWord = VarWord {unVarInt :: Word32}
+newtype VarWord = VarWord {unVarWord :: Word32}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Integral, Real, NFData, Hashable)
   deriving (Arb) via (ArbUnsigned Word32)
