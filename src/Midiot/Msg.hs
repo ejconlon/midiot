@@ -30,12 +30,14 @@ import Data.Sequence (Seq)
 import Data.String (IsString)
 import Data.Word (Word8)
 import GHC.Generics (Generic)
-import Midiot.Binary (BoundsCheck (..), MidiInt14 (..), MidiWord14 (..), MidiWord7 (..), VarInt (..))
+import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..))
+import Midiot.Binary (BoundedBinary (..), MidiInt14 (..), MidiWord14 (..), MidiWord7 (..), VarWord (..))
 
 newtype Channel = Channel {unChannel :: MidiWord7}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized)
-  deriving (Binary) via (BoundsCheck "Channel" Channel)
+  deriving (Binary) via (BoundedBinary "Channel" Channel)
+  deriving (Arb) via (ArbEnum Channel)
 
 instance Bounded Channel where
   minBound = 0
@@ -43,43 +45,43 @@ instance Bounded Channel where
 
 newtype Note = Note {unNote :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
 newtype Velocity = Velocity {unVelocity :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
 newtype ControlNum = ControlNum {unControlNum :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
 newtype ControlVal = ControlVal {unControlVal :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
 newtype Pressure = Pressure {unPressure :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
 newtype ProgramNum = ProgramNum {unProgramNum :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
 newtype PitchBend = PitchBend {unPitchBend :: MidiInt14}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
 newtype Song = Song {unSong :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
 newtype Position = Position {unPosition :: MidiWord14}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
 newtype Manf = Manf {unManf :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
 eduManf :: Manf
 eduManf = Manf 0x7D
@@ -96,6 +98,7 @@ data QuarterTimeKey
   deriving stock (Eq, Ord, Show, Enum, Bounded, Generic)
   deriving (BinaryRep MidiWord7) via (ViaBoundedEnum MidiWord7 QuarterTimeKey)
   deriving (Binary) via (ViaBinaryRep QuarterTimeKey)
+  deriving (Arb) via (ArbGeneric QuarterTimeKey)
   deriving anyclass (NFData)
 
 instance ByteSized QuarterTimeKey where
@@ -110,6 +113,7 @@ data QuarterTime = QuarterTime
   }
   deriving stock (Eq, Ord, Show, Generic)
   deriving (ByteSized, StaticByteSized, Binary) via (ViaStaticGeneric QuarterTime)
+  deriving (Arb) via (ArbGeneric QuarterTime)
   deriving anyclass (NFData)
 
 noteOn :: Channel -> Note -> Velocity -> Msg
@@ -126,16 +130,21 @@ data ChanVoiceMsgData
   | ChanVoiceAftertouch !Pressure
   | ChanVoicePitchWheel !PitchBend
   deriving stock (Eq, Show, Generic)
+  deriving (Arb) via (ArbGeneric ChanVoiceMsgData)
   deriving anyclass (NFData)
 
 data ChanVoiceMsg
   = ChanVoiceMsg !Channel !ChanVoiceMsgData
   deriving stock (Eq, Show, Generic)
+  deriving (Arb) via (ArbGeneric ChanVoiceMsg)
   deriving anyclass (NFData)
 
 newtype SysexString = SysexString {unSysexString :: ShortByteString}
   deriving stock (Show)
   deriving newtype (Eq, Ord, IsString, NFData)
+
+instance Arb SysexString where
+  arb = undefined
 
 instance ByteSized SysexString where
   byteSize = fromIntegral . BSS.length . unSysexString
@@ -160,6 +169,7 @@ data Msg
   | MsgActiveSensing
   | MsgReset
   deriving stock (Eq, Show, Generic)
+  deriving (Arb) via (ArbGeneric Msg)
   deriving anyclass (NFData)
 
 instance ByteSized Msg where
@@ -237,12 +247,13 @@ instance Binary Msg where
     MsgReset -> put @Word8 0xFF
 
 data MidiEvent = MidiEvent
-  { meTimeDelta :: !VarInt
+  { meTimeDelta :: !VarWord
   , meMessage :: !Msg
   }
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (NFData)
   deriving (ByteSized, Binary) via (ViaGeneric MidiEvent)
+  deriving (Arb) via (ArbGeneric MidiEvent)
+  deriving anyclass (NFData)
 
 -- -- TODO finish this
 -- data MidiTrackHeader = MidiTrackHeader
@@ -253,6 +264,9 @@ data MidiEvent = MidiEvent
 newtype MidiRun = MidiRun {unMidiRun :: Seq MidiEvent}
   deriving stock (Show)
   deriving newtype (Eq, NFData)
+
+instance Arb MidiRun where
+  arb = undefined
 
 instance ByteSized MidiRun where
   byteSize _ = 4 + undefined
@@ -267,6 +281,9 @@ data MidiTrack = MidiTrack
   }
   deriving stock (Eq, Show, Generic)
 
+-- deriving (Arb) via (ArbGeneric MidiTrack)
+-- deriving anyclass (NFData)
+
 instance ByteSized MidiTrack where
   byteSize (MidiTrack _ run) = 4 + byteSize run
 
@@ -278,8 +295,10 @@ data MidiFileType
   = MidiFileTypeSingle
   | MidiFileTypeMultiSync
   | MidiFileTypeMultiAsync
-  deriving stock (Eq, Ord, Enum, Bounded, Show)
+  deriving stock (Eq, Ord, Enum, Bounded, Show, Generic)
   deriving (ByteSized, StaticByteSized, Binary) via (ViaBinaryRep MidiFileType)
+  deriving (Arb) via (ArbEnum MidiFileType)
+  deriving anyclass (NFData)
 
 instance BinaryRep Word16LE MidiFileType where
   fromBinaryRep = \case
@@ -299,6 +318,9 @@ data MidiFile = MidiFile
   , mfTracks :: !(Seq MidiTrack)
   }
   deriving stock (Eq, Show, Generic)
+
+-- deriving (Arb) via (ArbGeneric MidiTrack)
+-- deriving anyclass (NFData)
 
 instance ByteSized MidiFile where
   byteSize (MidiFile _ _ _ tracks) = 14 + byteSizeFoldable tracks

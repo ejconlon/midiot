@@ -25,6 +25,7 @@ source-repository head
 library
   exposed-modules:
       Midiot
+      Midiot.Arb
       Midiot.Binary
       Midiot.Codec
       Midiot.Iface
@@ -69,6 +70,7 @@ library
     , dahdit ==0.3.*
     , data-sword >=0.2.0.4 && <0.3
     , deepseq
+    , falsify
     , hashable
     , primitive ==0.8.*
     , vector
@@ -115,6 +117,7 @@ executable midiot-exe
     , dahdit ==0.3.*
     , data-sword >=0.2.0.4 && <0.3
     , deepseq
+    , falsify
     , hashable
     , midiot
     , primitive ==0.8.*
@@ -163,6 +166,7 @@ test-suite midiot-test
     , dahdit ==0.3.*
     , data-sword >=0.2.0.4 && <0.3
     , deepseq
+    , falsify
     , hashable
     , midiot
     , primitive ==0.8.*

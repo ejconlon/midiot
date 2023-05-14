@@ -24,6 +24,7 @@ dependencies:
 - deepseq
 - RtMidi >= 0.6.1.0 && < 0.7
 - data-sword >= 0.2.0.4 && < 0.3
+- falsify
 
 default-extensions:
 - BangPatterns
@@ -88,3 +89,4 @@ tests:
     - midiot
     - tasty
     - tasty-hunit
+    # - tasty-golden

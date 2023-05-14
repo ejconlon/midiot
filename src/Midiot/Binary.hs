@@ -1,12 +1,12 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Midiot.Binary
-  ( BoundsCheck (..)
+  ( BoundedBinary (..)
   , MidiWord7 (..)
   , MidiInt7 (..)
   , MidiWord14 (..)
   , MidiInt14 (..)
-  , VarInt (..)
+  , VarWord (..)
   , expandW14
   , contractW14
   )
@@ -22,20 +22,22 @@ import Data.ShortWord (Int7, Word7)
 import Data.ShortWord.TH (mkShortWord)
 import Data.Word (Word16, Word32, Word8)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
+import Midiot.Arb (Arb (..), ArbSigned (..), ArbUnsigned (..))
 
-newtype BoundsCheck (s :: Symbol) a = BoundsCheck {unBoundsCheck :: a}
+newtype BoundedBinary (s :: Symbol) a = BoundedBinary {unBoundedBinary :: a}
 
-instance (KnownSymbol s, Bounded a, Binary a, Ord a, Show a) => Binary (BoundsCheck s a) where
+instance (KnownSymbol s, Bounded a, Binary a, Ord a, Show a) => Binary (BoundedBinary s a) where
   get = do
     v <- get
     if v < minBound || v > maxBound
       then fail (symbolVal (Proxy :: Proxy s) ++ " value out of bounds: " ++ show v)
-      else pure (BoundsCheck v)
-  put = put . unBoundsCheck
+      else pure (BoundedBinary v)
+  put = put . unBoundedBinary
 
 newtype MidiWord7 = MidiWord7 {unMidiWord7 :: Word7}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
+  deriving (Arb) via (ArbUnsigned Word7)
 
 instance ByteSized MidiWord7 where
   byteSize _ = 1
@@ -54,6 +56,7 @@ instance Binary MidiWord7 where
 newtype MidiInt7 = MidiInt7 {unMidiInt7 :: Int7}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
+  deriving (Arb) via (ArbSigned Int7)
 
 instance ByteSized MidiInt7 where
   byteSize _ = 1
@@ -88,6 +91,7 @@ contractW14 v =
 newtype MidiWord14 = MidiWord14 {unMidiWord14 :: Word14}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
+  deriving (Arb) via (ArbUnsigned Word14)
 
 instance ByteSized MidiWord14 where
   byteSize _ = 2
@@ -102,6 +106,7 @@ instance Binary MidiWord14 where
 newtype MidiInt14 = MidiInt14 {unMidiInt14 :: Int14}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
+  deriving (Arb) via (ArbSigned Int14)
 
 instance ByteSized MidiInt14 where
   byteSize _ = 2
@@ -113,19 +118,20 @@ instance Binary MidiInt14 where
   get = fmap (MidiInt14 . fromIntegral . contractW14 . unWord16LE) get
   put = put . Word16LE . expandW14 . fromIntegral . unMidiInt14
 
-newtype VarInt = VarInt {unVarInt :: Word32}
+newtype VarWord = VarWord {unVarInt :: Word32}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Integral, Real, NFData, Hashable)
+  deriving (Arb) via (ArbUnsigned Word32)
 
-instance ByteSized VarInt where
-  byteSize (VarInt w) =
+instance ByteSized VarWord where
+  byteSize (VarWord w) =
     if
         | w .&. 0xFFFFFF80 == 0 -> 1
         | w .&. 0xFFFFC000 == 0 -> 2
         | w .&. 0xFFE00000 == 0 -> 3
         | otherwise -> 4
 
-instance Binary VarInt where
+instance Binary VarWord where
   get = go 0 0
    where
     go !off !acc = do
@@ -134,10 +140,10 @@ instance Binary VarInt where
           !wShift = shiftL wLow off
           !accNext = acc .|. wShift
       if w .&. 0x80 == 0
-        then pure $! VarInt accNext
+        then pure $! VarWord accNext
         else go (off + 7) accNext
 
-  put (VarInt acc) = go acc
+  put (VarWord acc) = go acc
    where
     go !w = do
       let !wLow = fromIntegral (w .&. 0x7F)
