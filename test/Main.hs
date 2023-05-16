@@ -1,18 +1,20 @@
 module Main (main) where
 
-import Dahdit (Binary, ByteCount (..), ByteSized (..), StaticByteSized (..), decode, encode)
+import Dahdit (Binary, ByteCount (..), ByteSized (..), StaticByteSized (..), decode, decodeFile, encode)
 import qualified Data.ByteString.Short as BSS
 import Data.Foldable (for_)
 import Data.Proxy (Proxy (..))
 import Midiot.Arb (Arb (..))
--- (Channel, Note)
 import Midiot.Binary
 import Midiot.Msg
+import System.Directory (listDirectory)
+import System.FilePath (takeExtension, (</>))
 import Test.Falsify.Generator (Gen)
 import qualified Test.Falsify.Predicate as FR
 import qualified Test.Falsify.Property as FP
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Falsify (Property, testProperty)
+import Test.Tasty.HUnit (testCase, (@?=))
 
 data RTCase where
   RTCase :: (Eq a, Show a, ByteSized a, Binary a) => String -> Gen a -> Maybe ByteCount -> RTCase
@@ -75,11 +77,38 @@ rtCases =
 testRTCases :: TestTree
 testRTCases = testGroup "RT" (fmap runRTCase rtCases)
 
+findFiles :: IO [FilePath]
+findFiles = do
+  let tdDir = "testdata"
+      midiDir = tdDir </> "midi"
+  let xtraFiles = fmap (tdDir </>) ["twinkle.mid", "parse_me.mid"]
+  midiFiles <- fmap (fmap (midiDir </>)) (listDirectory midiDir)
+  pure (xtraFiles ++ midiFiles)
+
+testFileCase :: FilePath -> TestTree
+testFileCase fn = testCase fn $ do
+  let ext = takeExtension fn
+  case ext of
+    ".mid" -> do
+      (fileRes, fileBc) <- decodeFile @File fn
+      case fileRes of
+        Left err -> fail ("Midi decode of " ++ fn ++ " failed at " ++ show (unByteCount fileBc) ++ ": " ++ show err)
+        Right fileVal -> do
+          -- TODO test rendering
+          byteSize fileVal @?= fileBc
+    ".syx" -> pure ()
+    _ -> fail ("Unhandled file format: " ++ ext)
+
+testFileCases :: [FilePath] -> TestTree
+testFileCases = testGroup "Files" . fmap testFileCase
+
 -- Increase number of examples with TASTY_FALSIFY_TESTS=1000 etc
 main :: IO ()
-main =
+main = do
+  files <- findFiles
   defaultMain $
     testGroup
       "Midiot"
       [ testRTCases
+      -- , testFileCases files
       ]

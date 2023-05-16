@@ -41,7 +41,7 @@ where
 import Control.DeepSeq (NFData)
 import Control.Monad (unless, void)
 import Control.Newtype (Newtype)
-import Dahdit (Binary (..), BinaryRep (..), ByteCount, ByteSized (..), ExactBytes (..), Get, Put, PutM, StaticByteSized (..), ViaBinaryRep (..), ViaGeneric (..), ViaStaticByteSized (..), Word16BE (..), byteSizeFoldable, getLookAhead, getSeq, putSeq)
+import Dahdit (Binary (..), BinaryRep (..), ByteCount, ByteSized (..), ExactBytes (..), Get, Put, PutM, StaticByteSized (..), ViaBinaryRep (..), ViaGeneric (..), ViaStaticByteSized (..), Word16BE (..), Word32BE (..), byteSizeFoldable, getExact, getLookAhead, getRemainingSize, getSeq, putSeq)
 import Data.Bits (Bits (..))
 import Data.ByteString.Internal (c2w)
 import Data.Hashable (Hashable)
@@ -681,7 +681,7 @@ byteSizeEvents :: Seq Event -> ByteCount
 byteSizeEvents = byteSizeEventsLoop 0 Nothing
 
 instance ByteSized Track where
-  byteSize (Track events) = 6 + byteSizeEvents events
+  byteSize (Track events) = 8 + byteSizeEvents events
 
 -- private
 getEventsLoop :: Int -> Seq Event -> Maybe ChanStatus -> Get (Seq Event)
@@ -712,17 +712,29 @@ putEventsLoop !mayLastStatus = \case
 putEvents :: Seq Event -> Put
 putEvents = putEventsLoop Nothing
 
+getEventsScope :: ByteCount -> Get (Seq Event)
+getEventsScope bc = getExact bc (go Empty Nothing)
+ where
+  go !acc !mayLastStatus = do
+    sz <- getRemainingSize
+    if sz == 0
+      then pure acc
+      else do
+        td <- get
+        msg <- getMsgRunning mayLastStatus
+        let !me = Event td msg
+            !mayNextStatus = statusAsChan (msgStatus msg)
+        go (acc :|> me) mayNextStatus
+
 instance Binary Track where
   get = do
     _ <- get @TrackMagic
-    -- TODO this is wrong, actually this is a chunk size
-    Word16BE numEvents <- get
-    events <- getEvents (fromIntegral numEvents)
-    pure (Track events)
+    chunkSize <- get @Word32BE
+    fmap Track (getEventsScope (fromIntegral chunkSize))
 
-  put (Track events) = do
+  put t@(Track events) = do
     put @TrackMagic (ExactBytes ())
-    put (Word16BE (fromIntegral (Seq.length events)))
+    put @Word32BE (fromIntegral (byteSize t) - 8)
     putEvents events
 
 data FileType
