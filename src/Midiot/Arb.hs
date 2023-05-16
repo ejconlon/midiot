@@ -5,6 +5,7 @@ module Midiot.Arb
   , genSigned
   , genUnsigned
   , genEnum
+  , genSum
   , arbList
   , arbSeq
   , Arb (..)
@@ -39,6 +40,9 @@ genUnsigned = FG.integral (FR.between (0, maxBound))
 
 genEnum :: (Enum a, Bounded a) => Gen a
 genEnum = let b = minBound in FG.elem (b :| [succ b .. maxBound])
+
+genSum :: NonEmpty (Gen a) -> Gen a
+genSum (g :| gs) = foldr FG.choose g gs
 
 arbList :: Arb a => Word -> Word -> Gen [a]
 arbList mn mx = FG.list (FR.between (mn, mx)) arb

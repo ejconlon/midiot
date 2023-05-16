@@ -14,7 +14,7 @@ module Midiot.Msg
   , Song (..)
   , Position (..)
   , Manf (..)
-  , QuarterTimeKey (..)
+  , QuarterTimeUnit (..)
   , QuarterTime (..)
   , SysExString (..)
   , ChanStatus (..)
@@ -41,17 +41,21 @@ where
 import Control.DeepSeq (NFData)
 import Control.Monad (unless, void)
 import Control.Newtype (Newtype)
-import Dahdit (Binary (..), BinaryRep (..), ByteCount, ByteSized (..), ExactBytes (..), Get, Put, PutM, StaticByteSized (..), ViaBinaryRep (..), ViaBoundedEnum (..), ViaGeneric (..), ViaStaticByteSized (..), ViaStaticGeneric (..), Word16BE (..), byteSizeFoldable, getLookAhead, getSeq, putSeq)
+import Dahdit (Binary (..), BinaryRep (..), ByteCount, ByteSized (..), ExactBytes (..), Get, Put, PutM, StaticByteSized (..), ViaBinaryRep (..), ViaGeneric (..), ViaStaticByteSized (..), Word16BE (..), byteSizeFoldable, getLookAhead, getSeq, putSeq)
 import Data.Bits (Bits (..))
 import Data.ByteString.Internal (c2w)
 import Data.Hashable (Hashable)
+import qualified Data.List.NonEmpty as NE
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
+import Data.ShortWord (Word4)
 import Data.String (IsString (..))
 import Data.Word (Word16, Word8)
 import GHC.Generics (Generic)
-import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..), arbSeq)
+import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..), arbSeq, genSum, genUnsigned)
 import Midiot.Binary (BoundedBinary (..), MidiInt14 (..), MidiWord14 (..), MidiWord7 (..), VarWord (..))
+import qualified Test.Falsify.Generator as FG
+import qualified Test.Falsify.Range as FR
 
 newtype Channel = Channel {unChannel :: MidiWord7}
   deriving stock (Show)
@@ -123,35 +127,45 @@ newtype Manf = Manf {unManf :: MidiWord7}
 eduManf :: Manf
 eduManf = Manf 0x7D
 
-data QuarterTimeKey
-  = QTKFramesLow
-  | QTKFramesHigh
-  | QTKSecondsLow
-  | QTKSecondsHigh
-  | QTKMinutesLow
-  | QTKMinutesHigh
-  | QTKHoursLow
-  | QTKHoursHigh
+data QuarterTimeUnit
+  = QTUFramesLow
+  | QTUFramesHigh
+  | QTUSecondsLow
+  | QTUSecondsHigh
+  | QTUMinutesLow
+  | QTUMinutesHigh
+  | QTUHoursLow
+  | QTUHoursHigh
   deriving stock (Eq, Ord, Show, Enum, Bounded, Generic)
-  deriving (BinaryRep MidiWord7) via (ViaBoundedEnum MidiWord7 QuarterTimeKey)
-  deriving (Binary) via (ViaBinaryRep QuarterTimeKey)
-  deriving (Arb) via (ArbGeneric QuarterTimeKey)
+  deriving (Arb) via (ArbGeneric QuarterTimeUnit)
   deriving anyclass (NFData)
-
-instance ByteSized QuarterTimeKey where
-  byteSize _ = 1
-
-instance StaticByteSized QuarterTimeKey where
-  staticByteSize _ = 1
 
 data QuarterTime = QuarterTime
-  { qtKey :: !QuarterTimeKey
-  , qtVal :: !MidiWord7
+  { qtUnit :: !QuarterTimeUnit
+  , qtValue :: !Word4
   }
   deriving stock (Eq, Ord, Show, Generic)
-  deriving (ByteSized, StaticByteSized, Binary) via (ViaStaticGeneric QuarterTime)
-  deriving (Arb) via (ArbGeneric QuarterTime)
   deriving anyclass (NFData)
+
+instance Arb QuarterTime where
+  arb = QuarterTime <$> arb <*> genUnsigned
+
+instance ByteSized QuarterTime where
+  byteSize _ = 1
+
+instance StaticByteSized QuarterTime where
+  staticByteSize _ = 1
+
+instance Binary QuarterTime where
+  get = do
+    w <- get @Word8
+    let x = shiftR w 4
+    unless (x < 8) (fail ("Invalid quarter time unit: " ++ show x))
+    let unit = toEnum (fromIntegral x)
+        val = fromIntegral (0x0F .&. w)
+    pure (QuarterTime unit val)
+  put (QuarterTime unit val) =
+    put @Word8 (shiftL (fromIntegral (fromEnum unit)) 4 .|. fromIntegral val)
 
 newtype SysExString = SysExString {unSysExString :: Seq MidiWord7}
   deriving stock (Show)
@@ -334,8 +348,23 @@ data ChanVoiceData
   | ChanVoiceProgramChange !ProgramNum
   | ChanVoiceChanAftertouch !Pressure
   | ChanVoicePitchBend !PitchBend
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving (Arb) via (ArbGeneric ChanVoiceData)
+  deriving stock (Eq, Ord, Show)
+
+instance Arb ChanVoiceData where
+  arb = genCVD
+   where
+    genCVD =
+      genSum $
+        NE.fromList
+          [ ChanVoiceDataNoteOff <$> arb <*> arb
+          , ChanVoiceDataNoteOn <$> arb <*> arb
+          , ChanVoiceKeyAftertouch <$> arb <*> arb
+          , ChanVoiceControlChange <$> genCN <*> arb
+          , ChanVoiceProgramChange <$> arb
+          , ChanVoiceChanAftertouch <$> arb
+          , ChanVoicePitchBend <$> arb
+          ]
+    genCN = fmap (ControlNum . MidiWord7) (FG.integral (FR.between (0x00, 0x77)))
 
 instance ByteSized ChanVoiceData where
   byteSize = \case
@@ -493,13 +522,18 @@ instance ByteSized CommonData where
     CommonDataEndExclusive -> 0
 
 getCommonData :: CommonStatus -> Get CommonData
-getCommonData = error "TODO"
+getCommonData = \case
+  CommonStatusTimeFrame -> fmap CommonDataTimeFrame get
+  CommonStatusSongPointer -> fmap CommonDataSongPointer get
+  CommonStatusSongSelect -> fmap CommonDataSongSelect get
+  CommonStatusTuneRequest -> pure CommonDataTuneRequest
+  CommonStatusEndExclusive -> pure CommonDataEndExclusive
 
 putCommonData :: CommonData -> Put
 putCommonData = \case
-  CommonDataTimeFrame _qt -> error "TODO"
-  CommonDataSongPointer _po -> error "TODO"
-  CommonDataSongSelect _so -> error "TODO"
+  CommonDataTimeFrame qt -> put qt
+  CommonDataSongPointer po -> put po
+  CommonDataSongSelect so -> put so
   CommonDataTuneRequest -> pure ()
   CommonDataEndExclusive -> pure ()
 
@@ -563,7 +597,11 @@ putMsgStatusRunning :: Maybe ChanStatus -> Msg -> PutM (Maybe ChanStatus)
 putMsgStatusRunning mayLastStatus msg =
   let curStatus = msgStatus msg
   in  case mayLastStatus of
-        Nothing -> Nothing <$ put curStatus
+        Nothing -> do
+          put curStatus
+          pure $ case curStatus of
+            StatusChan chanStatus -> Just chanStatus
+            _ -> Nothing
         Just lastStatus ->
           case curStatus of
             StatusChan chanStatus ->
@@ -631,13 +669,12 @@ byteSizeEventsLoop !bc !mayLastStatus = \case
   Empty -> bc
   Event td msg :<| mes ->
     let !tc = byteSize td
-        !anyNextStatus = msgStatus msg
-        !mayNextStatus = statusAsChan anyNextStatus
+        !mayNextStatus = statusAsChan (msgStatus msg)
+        !mc = byteSize msg
         !sc = case mayNextStatus of
-          Just _ | mayNextStatus == mayLastStatus -> 0
-          _ -> byteSize anyNextStatus
-        !mc = byteSize msg - 1 -- remove status byte
-    in  byteSizeEventsLoop (bc + tc + sc + mc) mayNextStatus mes
+          Just _ | mayNextStatus == mayLastStatus -> mc - 1
+          _ -> mc
+    in  byteSizeEventsLoop (bc + tc + sc) mayNextStatus mes
 
 -- private
 byteSizeEvents :: Seq Event -> ByteCount
@@ -678,6 +715,7 @@ putEvents = putEventsLoop Nothing
 instance Binary Track where
   get = do
     _ <- get @TrackMagic
+    -- TODO this is wrong, actually this is a chunk size
     Word16BE numEvents <- get
     events <- getEvents (fromIntegral numEvents)
     pure (Track events)
@@ -707,6 +745,7 @@ instance BinaryRep Word16BE FileType where
     FileTypeMultiAsync -> 2
 
 -- private
+-- TODO this is wrong
 type FileMagic = ExactBytes "MThd\NUL\NUL\NUL\ACK"
 
 -- | NOTE: Ticks could also be SMTPE-related, but we don't support that here

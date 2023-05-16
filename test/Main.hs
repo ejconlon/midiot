@@ -64,18 +64,18 @@ rtCases =
   , staRTCase "Song" (arb @Song)
   , staRTCase "Position" (arb @Position)
   , staRTCase "Manf" (arb @Manf)
-  , staRTCase "QuarterTimeKey" (arb @QuarterTimeKey)
   , staRTCase "QuarterTime" (arb @QuarterTime)
   , dynRTCase "SysExString" (arb @SysExString)
   , staRTCase "Status" (arb @Status)
-  -- , dynRTCase "Msg" (arb @Msg)
-  -- , dynRTCase "Track" (arb @Track)
-  -- , dynRTCase "File" (arb @File)
+  , dynRTCase "Msg" (arb @Msg)
+  , dynRTCase "Track" (arb @Track)
+  , dynRTCase "File" (arb @File)
   ]
 
 testRTCases :: TestTree
 testRTCases = testGroup "RT" (fmap runRTCase rtCases)
 
+-- Increase number of examples with TASTY_FALSIFY_TESTS=1000 etc
 main :: IO ()
 main =
   defaultMain $
