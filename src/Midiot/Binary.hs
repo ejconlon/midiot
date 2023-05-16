@@ -7,15 +7,12 @@ module Midiot.Binary
   , MidiWord14 (..)
   , MidiInt14 (..)
   , VarWord (..)
-  , expandW14
-  , contractW14
   )
 where
 
 import Control.DeepSeq (NFData)
-import Control.Monad (unless)
 import Control.Newtype (Newtype (..))
-import Dahdit (Binary (..), ByteSized (..), StaticByteSized (..), Word16LE (..))
+import Dahdit (Binary (..), ByteSized (..), StaticByteSized (..), Word16BE (..))
 import Data.Bits (Bits (..))
 import Data.Hashable (Hashable)
 import Data.Proxy (Proxy (..))
@@ -24,6 +21,8 @@ import Data.ShortWord.TH (mkShortWord)
 import Data.Word (Word16, Word32, Word8)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
 import Midiot.Arb (Arb (..), ArbSigned (..), ArbUnsigned (..))
+import qualified Test.Falsify.Generator as FG
+import qualified Test.Falsify.Range as FR
 
 newtype BoundedBinary (s :: Symbol) a b = BoundedBinary {unBoundedBinary :: a}
 
@@ -56,7 +55,7 @@ instance Binary MidiWord7 where
     if w .&. 0x80 == 0
       then pure (MidiWord7 (fromIntegral w))
       else fail ("Word7 high bit set: " ++ show w)
-  put = put @Word8 . fromIntegral . unMidiWord7
+  put v = put @Word8 (0x7F .&. fromIntegral (unMidiWord7 v))
 
 newtype MidiInt7 = MidiInt7 {unMidiInt7 :: Int7}
   deriving stock (Show)
@@ -75,7 +74,7 @@ instance Binary MidiInt7 where
     if w .&. 0x80 == 0
       then pure (MidiInt7 (fromIntegral w))
       else fail ("Int7 high bit set: " ++ show w)
-  put = put @Word8 . fromIntegral . unMidiInt7
+  put v = put @Word8 (0x7F .&. fromIntegral (unMidiInt7 v))
 
 mkShortWord "Word14" "Word14" "aWord14" "Int14" "Int14" "anInt14" ''Word16 14 []
 
@@ -105,8 +104,8 @@ instance StaticByteSized MidiWord14 where
   staticByteSize _ = 2
 
 instance Binary MidiWord14 where
-  get = fmap (MidiWord14 . contractW14 . unWord16LE) get
-  put = put . Word16LE . expandW14 . unMidiWord14
+  get = fmap (MidiWord14 . contractW14 . unWord16BE) get
+  put = put . Word16BE . expandW14 . unMidiWord14
 
 newtype MidiInt14 = MidiInt14 {unMidiInt14 :: Int14}
   deriving stock (Show)
@@ -120,13 +119,19 @@ instance StaticByteSized MidiInt14 where
   staticByteSize _ = 2
 
 instance Binary MidiInt14 where
-  get = fmap (MidiInt14 . fromIntegral . contractW14 . unWord16LE) get
-  put = put . Word16LE . expandW14 . fromIntegral . unMidiInt14
+  get = fmap (MidiInt14 . fromIntegral . contractW14 . unWord16BE) get
+  put = put . Word16BE . expandW14 . fromIntegral . unMidiInt14
 
 newtype VarWord = VarWord {unVarWord :: Word32}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Bounded, Num, Integral, Real, NFData, Hashable)
-  deriving (Arb) via (ArbUnsigned Word32)
+  deriving newtype (Eq, Ord, Enum, Num, Integral, Real, NFData, Hashable)
+
+instance Bounded VarWord where
+  minBound = VarWord 0
+  maxBound = VarWord 0x00FFFFFF
+
+instance Arb VarWord where
+  arb = fmap VarWord (FG.integral (FR.between (0, 0x00FFFFFF)))
 
 instance ByteSized VarWord where
   byteSize (VarWord w) =
@@ -141,17 +146,18 @@ instance Binary VarWord where
    where
     go !off !acc = do
       w <- get @Word8
-      let !wLow = fromIntegral (w .&. 0x7F)
-          !wShift = shiftL wLow off
-          !accNext = acc .|. wShift
+      let wLow = fromIntegral (w .&. 0x7F)
+          wShift = shiftL wLow off
+          accNext = acc .|. wShift
       if w .&. 0x80 == 0
-        then pure $! VarWord accNext
+        then pure (VarWord accNext)
         else go (off + 7) accNext
 
-  put (VarWord acc) = go acc
+  put (VarWord acc) = go (0 :: Int) acc
    where
-    go !w = do
-      let !wLow = fromIntegral (w .&. 0x7F)
-          !wShift = shiftR w 7
-      put @Word8 wLow
-      unless (wShift == 0) (go wShift)
+    go !off !w = do
+      let wLow = fromIntegral (w .&. 0x7F)
+          wShift = shiftR w 7
+      if wShift == 0 || off == 3
+        then put @Word8 wLow
+        else put @Word8 (wLow .|. 0x80) *> go (off + 1) wShift

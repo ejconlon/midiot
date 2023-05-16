@@ -5,7 +5,9 @@ import qualified Data.ByteString.Short as BSS
 import Data.Foldable (for_)
 import Data.Proxy (Proxy (..))
 import Midiot.Arb (Arb (..))
-import Midiot.Msg -- (Channel, Note)
+-- (Channel, Note)
+import Midiot.Binary
+import Midiot.Msg
 import Test.Falsify.Generator (Gen)
 import qualified Test.Falsify.Predicate as FR
 import qualified Test.Falsify.Property as FP
@@ -34,7 +36,6 @@ runRTCase (RTCase name gen mayStaBc) = testProperty name $ do
   for_ mayStaBc (assertEq startDynBc)
   let encVal = encode startVal
       encBc = ByteCount (BSS.length encVal)
-  assertEq encBc startDynBc
   let (endRes, endConBc) = decode encVal
   case endRes of
     Left err -> fail ("Decode of " ++ name ++ " failed: " ++ show err)
@@ -43,10 +44,16 @@ runRTCase (RTCase name gen mayStaBc) = testProperty name $ do
       let endDynBc = byteSize endVal
       assertEq endDynBc startDynBc
       assertEq endConBc startDynBc
+      assertEq encBc startDynBc
 
 rtCases :: [RTCase]
 rtCases =
-  [ staRTCase "Channel" (arb @Channel)
+  [ staRTCase "MidiWord7" (arb @MidiWord7)
+  , staRTCase "MidiInt7" (arb @MidiInt7)
+  , staRTCase "MidiWord14" (arb @MidiWord14)
+  , staRTCase "MidiInt14" (arb @MidiInt14)
+  , dynRTCase "VarWord" (arb @VarWord)
+  , staRTCase "Channel" (arb @Channel)
   , staRTCase "Note" (arb @Note)
   , staRTCase "Velocity" (arb @Velocity)
   , staRTCase "ControlNum" (arb @ControlNum)
@@ -59,11 +66,11 @@ rtCases =
   , staRTCase "Manf" (arb @Manf)
   , staRTCase "QuarterTimeKey" (arb @QuarterTimeKey)
   , staRTCase "QuarterTime" (arb @QuarterTime)
-  -- , dynRTCase "ChanVoiceMsgData" (arb @ChanVoiceMsgData)
-  -- , dynRTCase "ChanVoiceMsg" (arb @ChanVoiceMsg)
-  -- , dynRTCase "SysexString" (arb @SysexString)
+  , dynRTCase "SysExString" (arb @SysExString)
+  , staRTCase "Status" (arb @Status)
   -- , dynRTCase "Msg" (arb @Msg)
-  -- , dynRTCase "Event" (arb @Event)
+  -- , dynRTCase "Track" (arb @Track)
+  -- , dynRTCase "File" (arb @File)
   ]
 
 testRTCases :: TestTree

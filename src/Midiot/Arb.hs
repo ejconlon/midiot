@@ -5,6 +5,8 @@ module Midiot.Arb
   , genSigned
   , genUnsigned
   , genEnum
+  , arbList
+  , arbSeq
   , Arb (..)
   , ArbSigned (..)
   , ArbUnsigned (..)
@@ -18,6 +20,8 @@ import Data.Bits (FiniteBits (..))
 import Data.Int (Int16, Int8)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Proxy (Proxy)
+import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 import Data.Word (Word16, Word8)
 import GHC.Generics (Generic (..), K1 (..), M1 (..), U1 (..), (:*:) (..), (:+:) (..))
 import Test.Falsify.Generator (Gen)
@@ -35,6 +39,12 @@ genUnsigned = FG.integral (FR.between (0, maxBound))
 
 genEnum :: (Enum a, Bounded a) => Gen a
 genEnum = let b = minBound in FG.elem (b :| [succ b .. maxBound])
+
+arbList :: Arb a => Word -> Word -> Gen [a]
+arbList mn mx = FG.list (FR.between (mn, mx)) arb
+
+arbSeq :: Arb a => Word -> Word -> Gen (Seq a)
+arbSeq mn mx = fmap Seq.fromList (arbList mn mx)
 
 class Arb a where
   arb :: Gen a
