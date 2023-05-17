@@ -1,12 +1,16 @@
 module Main (main) where
 
-import Dahdit (Binary, ByteCount (..), ByteSized (..), StaticByteSized (..), decode, decodeFile, encode)
+import Control.Monad (unless, when)
+import Dahdit (Binary, ByteCount (..), ByteSized (..), GetError, StaticByteSized (..), decode, decodeFile, encode)
+import Data.Bifunctor (first)
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Short as BSS
 import Data.Foldable (for_)
 import Data.Proxy (Proxy (..))
-import Midiot.Arb (Arb (..))
+import Midiot.Arb (Arb (..), arbSBS)
 import Midiot.Binary
 import Midiot.Msg
+import Midiot.Parse (Eof (..))
 import System.Directory (listDirectory)
 import System.FilePath (takeExtension, (</>))
 import Test.Falsify.Generator (Gen)
@@ -38,7 +42,7 @@ runRTCase (RTCase name gen mayStaBc) = testProperty name $ do
   for_ mayStaBc (assertEq startDynBc)
   let encVal = encode startVal
       encBc = ByteCount (BSS.length encVal)
-  let (endRes, endConBc) = decode encVal
+  let (endRes, endConBc) = first (fmap unEof) (decode encVal)
   case endRes of
     Left err -> fail ("Decode of " ++ name ++ " failed: " ++ show err)
     Right endVal -> do
@@ -67,11 +71,16 @@ rtCases =
   , staRTCase "Position" (arb @Position)
   , staRTCase "Manf" (arb @Manf)
   , staRTCase "QuarterTime" (arb @QuarterTime)
-  , dynRTCase "SysExString" (arb @SysExString)
-  , staRTCase "Status" (arb @Status)
-  , dynRTCase "Msg" (arb @Msg)
+  , dynRTCase "SysExData" (arb @SysExData)
+  , staRTCase "LiveStatus" (arb @LiveStatus)
+  , staRTCase "RecStatus" (arb @RecStatus)
+  , dynRTCase "MetaString" (fmap MetaString (arbSBS 0 255))
+  , dynRTCase "MetaData" (arb @MetaData)
+  , dynRTCase "LiveMsg" (arb @LiveMsg)
+  , dynRTCase "RecMsg" (arb @RecMsg)
   , dynRTCase "Track" (arb @Track)
-  , dynRTCase "File" (arb @File)
+  , dynRTCase "MidFile" (arb @MidFile)
+  , dynRTCase "SysExDump" (arb @SysExDump)
   ]
 
 testRTCases :: TestTree
@@ -85,18 +94,33 @@ findFiles = do
   midiFiles <- fmap (fmap (midiDir </>)) (listDirectory midiDir)
   pure (xtraFiles ++ midiFiles)
 
+decodeFileAs :: Binary a => Proxy a -> FilePath -> IO (Either GetError a, ByteCount)
+decodeFileAs _ = fmap (first (fmap unEof)) . decodeFile
+
+shouldFail :: FilePath -> Bool
+shouldFail fn =
+  let xs = fmap (\p -> BS.pack ("/test-" ++ p ++ "-")) ["illegal", "non-midi", "corrupt"]
+  in  any (`BS.isInfixOf` BS.pack fn) xs
+
+runFileCase :: (ByteSized a, Binary a) => Proxy a -> FilePath -> IO ()
+runFileCase prox fn = do
+  (fileRes, fileBc) <- decodeFileAs prox fn
+  case fileRes of
+    Left err ->
+      unless
+        (shouldFail fn)
+        (fail ("Decode " ++ fn ++ " failed at " ++ show (unByteCount fileBc) ++ ": " ++ show err))
+    Right fileVal -> do
+      when (shouldFail fn) (fail "Expected failure")
+      -- TODO test rendering
+      unless (byteSize fileVal <= fileBc) (fail "Bad byte size")
+
 testFileCase :: FilePath -> TestTree
 testFileCase fn = testCase fn $ do
   let ext = takeExtension fn
   case ext of
-    ".mid" -> do
-      (fileRes, fileBc) <- decodeFile @File fn
-      case fileRes of
-        Left err -> fail ("Midi decode of " ++ fn ++ " failed at " ++ show (unByteCount fileBc) ++ ": " ++ show err)
-        Right fileVal -> do
-          -- TODO test rendering
-          byteSize fileVal @?= fileBc
-    ".syx" -> pure ()
+    ".mid" -> runFileCase (Proxy @MidFile) fn
+    ".syx" -> runFileCase (Proxy @SysExDump) fn
     _ -> fail ("Unhandled file format: " ++ ext)
 
 testFileCases :: [FilePath] -> TestTree
@@ -110,5 +134,5 @@ main = do
     testGroup
       "Midiot"
       [ testRTCases
-      -- , testFileCases files
+      , testFileCases files
       ]

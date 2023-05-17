@@ -16,34 +16,39 @@ module Midiot.Msg
   , Manf (..)
   , QuarterTimeUnit (..)
   , QuarterTime (..)
-  , SysExString (..)
   , ChanStatus (..)
   , RtStatus (..)
   , CommonStatus (..)
-  , Status (..)
+  , LiveStatus (..)
+  , RecStatus (..)
   , ChanStatusType (..)
   , ChanVoiceData (..)
   , ChanModeData (..)
   , ChanData (..)
+  , SysExType (..)
   , SysExData (..)
   , CommonData (..)
-  , Msg (..)
-  , msgStatus
+  , LiveMsg (..)
+  , MetaString (..)
+  , MetaData (..)
+  , RecMsg (..)
   , msgNoteOn
   , msgNoteOff
   , Event (..)
   , Track (..)
-  , FileType (..)
-  , File (..)
+  , MidFileType (..)
+  , MidFile (..)
+  , SysExDump (..)
   )
 where
 
 import Control.DeepSeq (NFData)
-import Control.Monad (unless, void)
+import Control.Monad (unless, void, when)
 import Control.Newtype (Newtype)
-import Dahdit (Binary (..), BinaryRep (..), ByteCount, ByteSized (..), ExactBytes (..), Get, Put, PutM, StaticByteSized (..), ViaBinaryRep (..), ViaGeneric (..), ViaStaticByteSized (..), Word16BE (..), Word32BE (..), byteSizeFoldable, getExact, getLookAhead, getRemainingSize, getSeq, putSeq)
+import Dahdit (Binary (..), BinaryRep (..), ByteCount, ByteSized (..), ExactBytes (..), Get, Put, PutM, StaticByteSized (..), ViaBinaryRep (..), ViaGeneric (..), ViaStaticByteSized (..), Word16BE (..), Word32BE (..), byteSizeFoldable, getByteString, getExact, getExpect, getLookAhead, getRemainingSeq, getRemainingSize, getSeq, putByteString, putSeq)
 import Data.Bits (Bits (..))
-import Data.ByteString.Internal (c2w)
+import Data.ByteString.Short (ShortByteString)
+import qualified Data.ByteString.Short as BSS
 import Data.Hashable (Hashable)
 import qualified Data.List.NonEmpty as NE
 import Data.Sequence (Seq (..))
@@ -52,7 +57,7 @@ import Data.ShortWord (Word4)
 import Data.String (IsString (..))
 import Data.Word (Word16, Word8)
 import GHC.Generics (Generic)
-import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..), arbSeq, genSum, genUnsigned)
+import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..), arbSBS, arbSeq, genEnum, genSum, genUnsigned)
 import Midiot.Binary (BoundedBinary (..), MidiInt14 (..), MidiWord14 (..), MidiWord7 (..), VarWord (..))
 import qualified Test.Falsify.Generator as FG
 import qualified Test.Falsify.Range as FR
@@ -167,43 +172,6 @@ instance Binary QuarterTime where
   put (QuarterTime unit val) =
     put @Word8 (shiftL (fromIntegral (fromEnum unit)) 4 .|. fromIntegral val)
 
-newtype SysExString = SysExString {unSysExString :: Seq MidiWord7}
-  deriving stock (Show)
-  deriving newtype (Eq, Ord)
-
-instance IsString SysExString where
-  fromString = SysExString . Seq.fromList . fmap (fromIntegral . c2w)
-
-instance ByteSized SysExString where
-  byteSize = fromIntegral . Seq.length . unSysExString
-
-instance Arb SysExString where
-  arb = fmap SysExString (arbSeq 1 3)
-
--- private
-getFlaggedBytes :: Get (Seq MidiWord7)
-getFlaggedBytes = go Empty
- where
-  go !acc = do
-    w <- get @Word8
-    let acc' = acc :|> fromIntegral (w .&. 0x7F)
-    if w .&. 0x80 == 0
-      then pure acc'
-      else go acc'
-
--- private
-putFlaggedBytes :: Seq MidiWord7 -> Put
-putFlaggedBytes = \case
-  Empty -> pure ()
-  x :<| rest ->
-    case rest of
-      Empty -> put x
-      _ -> put @Word8 (0x80 .|. fromIntegral x) *> putFlaggedBytes rest
-
-instance Binary SysExString where
-  get = fmap SysExString getFlaggedBytes
-  put = putFlaggedBytes . unSysExString
-
 data ChanStatusType
   = ChanStatusNoteOff
   | ChanStatusNoteOn
@@ -220,7 +188,6 @@ data CommonStatus
   | CommonStatusSongPointer
   | CommonStatusSongSelect
   | CommonStatusTuneRequest
-  | CommonStatusEndExclusive
   deriving stock (Eq, Ord, Show, Enum, Bounded, Generic)
   deriving (Arb) via (ArbEnum CommonStatus)
 
@@ -238,30 +205,6 @@ data ChanStatus = ChanStatus !Channel !ChanStatusType
   deriving stock (Eq, Ord, Show, Generic)
   deriving (Arb) via (ArbGeneric ChanStatus)
 
-data Status
-  = StatusChan !ChanStatus
-  | StatusSysEx
-  | StatusSysCommon !CommonStatus
-  | StatusSysRt !RtStatus
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving (ByteSized) via (ViaStaticByteSized Status)
-  deriving (Arb) via (ArbGeneric Status)
-
-instance StaticByteSized Status where
-  staticByteSize _ = 1
-
--- private
-statusIsChan :: Status -> Bool
-statusIsChan = \case
-  StatusChan _ -> True
-  _ -> False
-
--- private
-statusAsChan :: Status -> Maybe ChanStatus
-statusAsChan = \case
-  StatusChan cs -> Just cs
-  _ -> Nothing
-
 -- private
 data StatusPeek
   = StatusPeekYes
@@ -277,30 +220,57 @@ peekStatus = getLookAhead $ do
       then StatusPeekNo b
       else StatusPeekYes
 
-instance Binary Status where
+class HasChanStatus s where
+  statusIsChan :: s -> Bool
+  statusAsChan :: s -> Maybe ChanStatus
+  statusFromChan :: ChanStatus -> s
+
+data LiveStatus
+  = LiveStatusChan !ChanStatus
+  | LiveStatusSysEx
+  | LiveStatusSysCommon !CommonStatus
+  | LiveStatusSysRt !RtStatus
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (ByteSized) via (ViaStaticByteSized LiveStatus)
+  deriving (Arb) via (ArbGeneric LiveStatus)
+
+instance StaticByteSized LiveStatus where
+  staticByteSize _ = 1
+
+instance HasChanStatus LiveStatus where
+  statusIsChan = \case
+    LiveStatusChan _ -> True
+    _ -> False
+
+  statusAsChan = \case
+    LiveStatusChan cs -> Just cs
+    _ -> Nothing
+
+  statusFromChan = LiveStatusChan
+
+instance Binary LiveStatus where
   get = do
     b <- get @Word8
     let x = b .&. 0xF0
     if
-        | x < 0x80 -> fail ("Status byte with high bit clear: " ++ show b)
+        | x < 0x80 -> fail ("Live status byte with high bit clear: " ++ show b)
         | x == 0xF0 ->
             case b of
-              0xF0 -> pure StatusSysEx
-              0xF1 -> pure (StatusSysCommon CommonStatusTimeFrame)
-              0xF2 -> pure (StatusSysCommon CommonStatusSongPointer)
-              0xF3 -> pure (StatusSysCommon CommonStatusSongSelect)
-              0xF6 -> pure (StatusSysCommon CommonStatusTuneRequest)
-              0xF7 -> pure (StatusSysCommon CommonStatusEndExclusive)
-              0xF8 -> pure (StatusSysRt RtStatusTimingClock)
-              0xFA -> pure (StatusSysRt RtStatusStart)
-              0xFB -> pure (StatusSysRt RtStatusContinue)
-              0xFC -> pure (StatusSysRt RtStatusStop)
-              0xFE -> pure (StatusSysRt RtStatusActiveSensing)
-              0xFF -> pure (StatusSysRt RtStatusSystemReset)
+              0xF0 -> pure LiveStatusSysEx
+              0xF1 -> pure (LiveStatusSysCommon CommonStatusTimeFrame)
+              0xF2 -> pure (LiveStatusSysCommon CommonStatusSongPointer)
+              0xF3 -> pure (LiveStatusSysCommon CommonStatusSongSelect)
+              0xF6 -> pure (LiveStatusSysCommon CommonStatusTuneRequest)
+              0xF8 -> pure (LiveStatusSysRt RtStatusTimingClock)
+              0xFA -> pure (LiveStatusSysRt RtStatusStart)
+              0xFB -> pure (LiveStatusSysRt RtStatusContinue)
+              0xFC -> pure (LiveStatusSysRt RtStatusStop)
+              0xFE -> pure (LiveStatusSysRt RtStatusActiveSensing)
+              0xFF -> pure (LiveStatusSysRt RtStatusSystemReset)
               _ -> fail ("Unknown system status byte: " ++ show b)
         | otherwise -> do
             let c = Channel (fromIntegral (b .&. 0x0F))
-            pure $ StatusChan $ ChanStatus c $ case x of
+            pure $ LiveStatusChan $ ChanStatus c $ case x of
               0x80 -> ChanStatusNoteOff
               0x90 -> ChanStatusNoteOn
               0xA0 -> ChanStatusKeyAftertouch
@@ -310,7 +280,7 @@ instance Binary Status where
               0xE0 -> ChanStatusPitchBend
               _ -> error "impossible"
   put = \case
-    StatusChan (ChanStatus c cs) ->
+    LiveStatusChan (ChanStatus c cs) ->
       let d = fromIntegral (unChannel c)
           x = case cs of
             ChanStatusNoteOff -> 0x80
@@ -321,16 +291,15 @@ instance Binary Status where
             ChanStatusChanAftertouch -> 0xD0
             ChanStatusPitchBend -> 0xE0
       in  put @Word8 (d .|. x)
-    StatusSysEx -> put @Word8 0xF0
-    StatusSysCommon cs ->
+    LiveStatusSysEx -> put @Word8 0xF0
+    LiveStatusSysCommon cs ->
       let x = case cs of
             CommonStatusTimeFrame -> 0x01
             CommonStatusSongPointer -> 0x02
             CommonStatusSongSelect -> 0x03
             CommonStatusTuneRequest -> 0x06
-            CommonStatusEndExclusive -> 0x07
       in  put @Word8 (0xF0 .|. x)
-    StatusSysRt rs ->
+    LiveStatusSysRt rs ->
       let !x = case rs of
             RtStatusTimingClock -> 0x00
             RtStatusStart -> 0x02
@@ -339,6 +308,192 @@ instance Binary Status where
             RtStatusActiveSensing -> 0x06
             RtStatusSystemReset -> 0x7
       in  put @Word8 (0xF8 .|. x)
+
+data RecStatus
+  = RecStatusChan !ChanStatus
+  | RecStatusSysEx
+  | RecStatusMeta
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (ByteSized) via (ViaStaticByteSized RecStatus)
+  deriving (Arb) via (ArbGeneric RecStatus)
+
+instance StaticByteSized RecStatus where
+  staticByteSize _ = 1
+
+instance HasChanStatus RecStatus where
+  statusIsChan = \case
+    RecStatusChan _ -> True
+    _ -> False
+
+  statusAsChan = \case
+    RecStatusChan cs -> Just cs
+    _ -> Nothing
+
+  statusFromChan = RecStatusChan
+
+instance Binary RecStatus where
+  get = do
+    b <- get @Word8
+    let x = b .&. 0xF0
+    if
+        | x < 0x80 -> fail ("Rec status byte with high bit clear: " ++ show b)
+        | x == 0xF0 ->
+            case b of
+              0xF0 -> pure RecStatusSysEx
+              0xFF -> pure RecStatusMeta
+              _ -> fail ("Unknown rec status byte: " ++ show b)
+        | otherwise -> do
+            let c = Channel (fromIntegral (b .&. 0x0F))
+            pure $ RecStatusChan $ ChanStatus c $ case x of
+              0x80 -> ChanStatusNoteOff
+              0x90 -> ChanStatusNoteOn
+              0xA0 -> ChanStatusKeyAftertouch
+              0xB0 -> ChanStatusControlChange
+              0xC0 -> ChanStatusProgramChange
+              0xD0 -> ChanStatusChanAftertouch
+              0xE0 -> ChanStatusPitchBend
+              _ -> error "impossible"
+  put = \case
+    RecStatusChan (ChanStatus c cs) ->
+      let d = fromIntegral (unChannel c)
+          x = case cs of
+            ChanStatusNoteOff -> 0x80
+            ChanStatusNoteOn -> 0x90
+            ChanStatusKeyAftertouch -> 0xA0
+            ChanStatusControlChange -> 0xB0
+            ChanStatusProgramChange -> 0xC0
+            ChanStatusChanAftertouch -> 0xD0
+            ChanStatusPitchBend -> 0xE0
+      in  put @Word8 (d .|. x)
+    RecStatusSysEx -> put @Word8 0xF0
+    RecStatusMeta -> put @Word8 0xFF
+
+-- | A string prefixed by a single-byte length
+newtype MetaString = MetaString {unMetaString :: ShortByteString}
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, IsString)
+
+instance ByteSized MetaString where
+  byteSize = succ . fromIntegral . BSS.length . unMetaString
+
+instance Binary MetaString where
+  get = do
+    len <- get @Word8
+    bss <- getByteString (fromIntegral len)
+    pure (MetaString bss)
+  put (MetaString s) = do
+    let len = BSS.length s
+    if len > 255
+      then do
+        put @Word8 255
+        putByteString (BSS.take 255 s)
+      else do
+        put @Word8 (fromIntegral len)
+        putByteString s
+
+data MetaData = MetaData
+  { mdType :: !Word8
+  , mdBody :: !MetaString
+  }
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (ByteSized, Binary) via (ViaGeneric MetaData)
+
+instance Arb MetaData where
+  arb = MetaData <$> arb <*> fmap MetaString (arbSBS 0 3)
+
+-- newtype Tempo = Tempo {unTempo :: Word24BE}
+--   deriving stock (Show)
+--   deriving newtype (Eq, Ord, ByteSized, StaticByteSized, Binary)
+
+-- data MetaData
+--   = MDSeqNum !Word16
+--   | MDText !MetaString
+--   | MDCopyright !MetaString
+--   | MDSeqName !MetaString
+--   | MDInstName !MetaString
+--   | MDLyrics !MetaString
+--   | MDMarker !MetaString
+--   | MDCuePoint !MetaString
+--   | MDChanPrefix !Channel
+--   | MDEndTrack
+--   | MDSetTempo !Tempo
+--   | MDSmpteOffset !Word8 !Word8 !Word8 !Word8 !Word8
+--   | MDTimeSig !Word8 !Word8 !Word8 !Word8
+--   | MDKeySig !Word8 !Word8
+--   | MDSeqSpecific !SysExString
+--   deriving stock (Eq, Ord, Show)
+
+-- instance Arb MetaData where
+--   arb = genMD where
+--     genMD = genSum $ NE.fromList
+--       [ MDSeqNum <$> arb
+--       , MDText <$> genS
+--       , MDCopyright <$> genS
+--       , MDSeqName <$> genS
+--       , MDInstName <$> genS
+--       , MDLyrics <$> genS
+--       , MDMarker <$> genS
+--       , MDCuePoint <$> genS
+--       , MDChanPrefix <$> arb
+--       , pure MDEndTrack
+--       -- TODO fill in the rest
+--       ]
+--     genS = MetaString <$> arbSBS 0 3
+
+-- instance ByteSized MetaData where
+--   byteSize = succ . \case
+--     MDSeqNum _ -> 2
+--     MDText t -> byteSize t
+--     MDCopyright t -> byteSize t
+--     MDSeqName t -> byteSize t
+--     MDInstName t -> byteSize t
+--     MDLyrics t -> byteSize t
+--     MDMarker t -> byteSize t
+--     MDCuePoint t -> byteSize t
+--     MDChanPrefix _ -> 1
+--     MDEndTrack -> 0
+--     MDSetTempo _ -> 3
+--     MDSmpteOffset {} -> 5
+--     MDTimeSig {} -> 4
+--     MDKeySig _ _ -> 2
+--     MDSeqSpecific ss -> byteSize ss
+
+-- instance Binary MetaData where
+--   get = do
+--     m <- get @Word8
+--     case m of
+--       0x00 -> fmap (MDSeqNum . unWord16BE) get
+--       0x01 -> fmap MDText get
+--       0x02 -> fmap MDCopyright get
+--       0x03 -> fmap MDSeqName get
+--       0x04 -> fmap MDInstName get
+--       0x05 -> fmap MDLyrics get
+--       0x06 -> fmap MDMarker get
+--       0x07 -> fmap MDCuePoint get
+--       0x20 -> fmap MDChanPrefix get
+--       0x2F -> pure MDEndTrack
+--       0x51 -> fmap MDSetTempo get
+--       0x54 -> MDSmpteOffset <$> get <*> get <*> get <*> get <*> get
+--       0x58 -> MDTimeSig <$> get <*> get <*> get <*> get
+--       0x59 -> MDKeySig <$> get <*> get
+--       0x7F -> fmap MDSeqSpecific get
+--       _ -> fail ("Unknown metadata type: " ++ show m)
+--   put = \case
+--     MDSeqNum w -> put @Word8 0x00 *> put (Word16BE w)
+--     MDText s -> put @Word8 0x01 *> put s
+--     MDCopyright s -> put @Word8 0x02 *> put s
+--     MDSeqName s -> put @Word8 0x03 *> put s
+--     MDInstName s -> put @Word8 0x04 *> put s
+--     MDLyrics s -> put @Word8 0x05 *> put s
+--     MDMarker s -> put @Word8 0x06 *> put s
+--     MDCuePoint s -> put @Word8 0x07 *> put s
+--     MDChanPrefix c -> put @Word8 0x20 *> put c
+--     MDEndTrack -> put @Word8 0x2F
+--     MDSetTempo t -> put @Word8 0x51 *> put t
+--     MDSmpteOffset {} -> put @Word8 0x54 *> error "TODO"
+--     MDTimeSig {} -> put @Word8 0x58 *> error "TODO"
+--     MDKeySig {} -> put @Word8 0x59 *> error "TODO"
+--     MDSeqSpecific ss -> put @Word8 0x7F *> put ss
 
 data ChanVoiceData
   = ChanVoiceDataNoteOff !Note !Velocity
@@ -441,6 +596,23 @@ data ChanData
   deriving stock (Eq, Ord, Show, Generic)
   deriving (Arb) via (ArbGeneric ChanData)
 
+instance ByteSized ChanData where
+  byteSize = \case
+    ChanDataVoice cvd -> byteSize cvd
+    ChanDataMode cmd -> byteSize cmd
+
+chanDataType :: ChanData -> ChanStatusType
+chanDataType = \case
+  ChanDataVoice cvd -> case cvd of
+    ChanVoiceDataNoteOff _ _ -> ChanStatusNoteOff
+    ChanVoiceDataNoteOn _ _ -> ChanStatusNoteOn
+    ChanVoiceKeyAftertouch _ _ -> ChanStatusKeyAftertouch
+    ChanVoiceControlChange _ _ -> ChanStatusControlChange
+    ChanVoiceProgramChange _ -> ChanStatusProgramChange
+    ChanVoiceChanAftertouch _ -> ChanStatusChanAftertouch
+    ChanVoicePitchBend _ -> ChanStatusPitchBend
+  ChanDataMode _ -> ChanStatusControlChange
+
 -- private
 getChanData :: ChanStatus -> Get ChanData
 getChanData (ChanStatus _ ty) = case ty of
@@ -496,20 +668,56 @@ getChanData (ChanStatus _ ty) = case ty of
     pb <- get @PitchBend
     pure (ChanDataVoice (ChanVoicePitchBend pb))
 
+putChanData :: ChanData -> Put
+putChanData = \case
+  ChanDataVoice cvd -> putChanVoiceData cvd
+  ChanDataMode cmd -> putChanModeData cmd
+
+data SysExType = SysExTypeEnd | SysExTypeContinue
+  deriving stock (Eq, Ord, Show, Enum, Bounded)
+
 data SysExData = SysExData
-  { sedManf :: !Manf
-  , sedBody :: !SysExString
+  { sedPayload :: !ShortByteString
+  , sedType :: !SysExType
   }
-  deriving stock (Eq, Ord, Show, Generic)
-  deriving (ByteSized, Binary) via (ViaGeneric SysExData)
-  deriving (Arb) via (ArbGeneric SysExData)
+  deriving stock (Show)
+  deriving stock (Eq, Ord)
+
+instance Arb SysExData where
+  arb = do
+    s <- arbSBS 0 3
+    ty <-
+      if not (BSS.null s) && BSS.last s == 0x7F
+        then pure SysExTypeEnd
+        else genEnum @SysExType
+    pure (SysExData s ty)
+
+instance ByteSized SysExData where
+  byteSize (SysExData s ty) =
+    let trimLen = BSS.length s
+        realLen = trimLen + if ty == SysExTypeEnd then 1 else 0
+    in  byteSize (VarWord (fromIntegral realLen)) + fromIntegral realLen
+
+instance Binary SysExData where
+  get = do
+    len <- get @VarWord
+    s <- getByteString (fromIntegral len)
+    let mx = BSS.unsnoc s
+    pure $ case mx of
+      Just (s', 0x7F) -> SysExData s' SysExTypeEnd
+      _ -> SysExData s SysExTypeContinue
+  put (SysExData s ty) = do
+    let trimLen = BSS.length s
+        realLen = trimLen + if ty == SysExTypeEnd then 1 else 0
+    put (VarWord (fromIntegral realLen))
+    putByteString s
+    when (ty == SysExTypeEnd) (put @Word8 0x7F)
 
 data CommonData
   = CommonDataTimeFrame !QuarterTime
   | CommonDataSongPointer !Position
   | CommonDataSongSelect !Song
   | CommonDataTuneRequest
-  | CommonDataEndExclusive
   deriving stock (Eq, Ord, Show, Generic)
   deriving (Arb) via (ArbGeneric CommonData)
 
@@ -519,7 +727,6 @@ instance ByteSized CommonData where
     CommonDataSongPointer _ -> 2
     CommonDataSongSelect _ -> 1
     CommonDataTuneRequest -> 0
-    CommonDataEndExclusive -> 0
 
 getCommonData :: CommonStatus -> Get CommonData
 getCommonData = \case
@@ -527,7 +734,6 @@ getCommonData = \case
   CommonStatusSongPointer -> fmap CommonDataSongPointer get
   CommonStatusSongSelect -> fmap CommonDataSongSelect get
   CommonStatusTuneRequest -> pure CommonDataTuneRequest
-  CommonStatusEndExclusive -> pure CommonDataEndExclusive
 
 putCommonData :: CommonData -> Put
 putCommonData = \case
@@ -535,120 +741,150 @@ putCommonData = \case
   CommonDataSongPointer po -> put po
   CommonDataSongSelect so -> put so
   CommonDataTuneRequest -> pure ()
-  CommonDataEndExclusive -> pure ()
 
-data Msg
-  = MsgChanVoice !Channel !ChanVoiceData
-  | MsgChanMode !Channel !ChanModeData
-  | MsgSysEx !SysExData
-  | MsgSysCommon !CommonData
-  | MsgSysRt !RtStatus
+class HasChanStatus s => HasChanData s c | c -> s where
+  extractStatus :: c -> s
+  embedChanData :: Channel -> ChanData -> c
+
+data LiveMsg
+  = LiveMsgChan !Channel !ChanData
+  | LiveMsgSysEx !SysExData
+  | LiveMsgSysCommon !CommonData
+  | LiveMsgSysRt !RtStatus
   deriving stock (Eq, Ord, Show, Generic)
-  deriving (Arb) via (ArbGeneric Msg)
+  deriving (Arb) via (ArbGeneric LiveMsg)
 
-instance ByteSized Msg where
-  byteSize msg =
-    1
-      + case msg of
-        MsgChanVoice _ cvd -> byteSize cvd
-        MsgChanMode _ cmd -> byteSize cmd
-        MsgSysEx sed -> byteSize sed
-        MsgSysCommon cd -> byteSize cd
-        MsgSysRt _ -> 0
+instance HasChanData LiveStatus LiveMsg where
+  extractStatus = liveMsgStatus
+  embedChanData = LiveMsgChan
 
-instance Binary Msg where
-  get = get @Status >>= getMsgWithStatus
-  put = void . putMsgRunning Nothing
+instance ByteSized LiveMsg where
+  byteSize =
+    succ . \case
+      LiveMsgChan _ cd -> byteSize cd
+      LiveMsgSysEx sed -> byteSize sed
+      LiveMsgSysCommon cd -> byteSize cd
+      LiveMsgSysRt _ -> 0
+
+instance Binary LiveMsg where
+  get = get @LiveStatus >>= getLiveMsgWithStatus
+  put = void . putMsgRunning putLiveMsgData Nothing
 
 -- private
-getMsgWithStatus :: Status -> Get Msg
-getMsgWithStatus = \case
-  StatusChan cs@(ChanStatus chan _) -> do
-    flip fmap (getChanData cs) $ \case
-      ChanDataVoice cvd -> MsgChanVoice chan cvd
-      ChanDataMode cmd -> MsgChanMode chan cmd
-  StatusSysEx -> fmap MsgSysEx get
-  StatusSysCommon cs -> fmap MsgSysCommon (getCommonData cs)
-  StatusSysRt rs -> pure (MsgSysRt rs)
+getLiveMsgWithStatus :: LiveStatus -> Get LiveMsg
+getLiveMsgWithStatus = \case
+  LiveStatusChan cs@(ChanStatus chan _) -> fmap (LiveMsgChan chan) (getChanData cs)
+  LiveStatusSysEx -> fmap LiveMsgSysEx get
+  LiveStatusSysCommon cs -> fmap LiveMsgSysCommon (getCommonData cs)
+  LiveStatusSysRt rs -> pure (LiveMsgSysRt rs)
 
 -- private
 -- Running status is for Voice and Mode messages only!
-getMsgRunning :: Maybe ChanStatus -> Get Msg
-getMsgRunning mayLastStatus = do
+getMsgRunning :: (Binary s, HasChanStatus s) => (s -> Get c) -> Maybe ChanStatus -> Get c
+getMsgRunning getter mayLastStatus = do
   peeked <- peekStatus
   case peeked of
     StatusPeekYes -> do
-      status <- get @Status
-      getMsgWithStatus status
+      status <- get
+      getter status
     StatusPeekNo dat ->
       case mayLastStatus of
         Nothing -> fail ("Expected status byte (no running status): " ++ show dat)
-        Just lastStatus -> getMsgWithStatus (StatusChan lastStatus)
+        Just lastStatus -> getter (statusFromChan lastStatus)
 
 -- private
-putMsgRunning :: Maybe ChanStatus -> Msg -> PutM (Maybe ChanStatus)
-putMsgRunning mayLastStatus msg = do
+putMsgRunning :: (HasChanData s c, Binary s) => (c -> Put) -> Maybe ChanStatus -> c -> PutM (Maybe ChanStatus)
+putMsgRunning putter mayLastStatus msg = do
   mayCurStatus <- putMsgStatusRunning mayLastStatus msg
-  putMsgData msg
+  putter msg
   pure mayCurStatus
 
 -- private
-putMsgStatusRunning :: Maybe ChanStatus -> Msg -> PutM (Maybe ChanStatus)
+putMsgStatusRunning :: (HasChanData s c, Binary s) => Maybe ChanStatus -> c -> PutM (Maybe ChanStatus)
 putMsgStatusRunning mayLastStatus msg =
-  let curStatus = msgStatus msg
+  let curStatus = extractStatus msg
+      mayChanStatus = statusAsChan curStatus
   in  case mayLastStatus of
         Nothing -> do
           put curStatus
-          pure $ case curStatus of
-            StatusChan chanStatus -> Just chanStatus
-            _ -> Nothing
+          pure mayChanStatus
         Just lastStatus ->
-          case curStatus of
-            StatusChan chanStatus ->
+          case mayChanStatus of
+            Just chanStatus ->
               if chanStatus == lastStatus
                 then pure mayLastStatus
                 else Just chanStatus <$ put curStatus
             _ -> Nothing <$ put curStatus
 
 -- private
-putMsgData :: Msg -> Put
-putMsgData = \case
-  MsgChanVoice _ cvd -> putChanVoiceData cvd
-  MsgChanMode _ cmd -> putChanModeData cmd
-  MsgSysEx sed -> put sed
-  MsgSysCommon cd -> putCommonData cd
-  MsgSysRt _ -> pure ()
+putLiveMsgData :: LiveMsg -> Put
+putLiveMsgData = \case
+  LiveMsgChan _ cd -> putChanData cd
+  LiveMsgSysEx sed -> put sed
+  LiveMsgSysCommon cd -> putCommonData cd
+  LiveMsgSysRt _ -> pure ()
 
-msgStatus :: Msg -> Status
-msgStatus = \case
-  MsgChanVoice chan cvd -> StatusChan $ ChanStatus chan $ case cvd of
-    ChanVoiceDataNoteOff _ _ -> ChanStatusNoteOff
-    ChanVoiceDataNoteOn _ _ -> ChanStatusNoteOn
-    ChanVoiceKeyAftertouch _ _ -> ChanStatusKeyAftertouch
-    ChanVoiceControlChange _ _ -> ChanStatusControlChange
-    ChanVoiceProgramChange _ -> ChanStatusProgramChange
-    ChanVoiceChanAftertouch _ -> ChanStatusChanAftertouch
-    ChanVoicePitchBend _ -> ChanStatusPitchBend
-  MsgChanMode chan _ -> StatusChan (ChanStatus chan ChanStatusControlChange)
-  MsgSysEx _ -> StatusSysEx
-  MsgSysCommon cd -> StatusSysCommon $ case cd of
+liveMsgStatus :: LiveMsg -> LiveStatus
+liveMsgStatus = \case
+  LiveMsgChan chan cd -> LiveStatusChan (ChanStatus chan (chanDataType cd))
+  LiveMsgSysEx _ -> LiveStatusSysEx
+  LiveMsgSysCommon cd -> LiveStatusSysCommon $ case cd of
     CommonDataTimeFrame _ -> CommonStatusTimeFrame
     CommonDataSongPointer _ -> CommonStatusSongPointer
     CommonDataSongSelect _ -> CommonStatusSongSelect
     CommonDataTuneRequest -> CommonStatusTuneRequest
-    CommonDataEndExclusive -> CommonStatusEndExclusive
-  MsgSysRt rs -> StatusSysRt rs
+  LiveMsgSysRt rs -> LiveStatusSysRt rs
 
-msgNoteOn :: Channel -> Note -> Velocity -> Msg
-msgNoteOn c k v = MsgChanVoice c (ChanVoiceDataNoteOn k v)
+msgNoteOn :: HasChanData s c => Channel -> Note -> Velocity -> c
+msgNoteOn c k v = embedChanData c (ChanDataVoice (ChanVoiceDataNoteOn k v))
 
-msgNoteOff :: Channel -> Note -> Msg
+msgNoteOff :: Channel -> Note -> LiveMsg
 msgNoteOff c k = msgNoteOn c k 0
+
+data RecMsg
+  = RecMsgChan !Channel !ChanData
+  | RecMsgSysEx !SysExData
+  | RecMsgMeta !MetaData
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (Arb) via (ArbGeneric RecMsg)
+
+recMsgStatus :: RecMsg -> RecStatus
+recMsgStatus = \case
+  RecMsgChan chan cd -> RecStatusChan (ChanStatus chan (chanDataType cd))
+  RecMsgSysEx _ -> RecStatusSysEx
+  RecMsgMeta _ -> RecStatusMeta
+
+instance HasChanData RecStatus RecMsg where
+  extractStatus = recMsgStatus
+  embedChanData = RecMsgChan
+
+instance ByteSized RecMsg where
+  byteSize =
+    succ . \case
+      RecMsgChan _ cd -> byteSize cd
+      RecMsgSysEx sed -> byteSize sed
+      RecMsgMeta md -> byteSize md
+
+instance Binary RecMsg where
+  get = get @RecStatus >>= getRecMsgWithStatus
+  put = void . putMsgRunning putRecMsgData Nothing
+
+getRecMsgWithStatus :: RecStatus -> Get RecMsg
+getRecMsgWithStatus = \case
+  RecStatusChan cs@(ChanStatus chan _) -> fmap (RecMsgChan chan) (getChanData cs)
+  RecStatusSysEx -> fmap RecMsgSysEx get
+  RecStatusMeta -> fmap RecMsgMeta get
+
+putRecMsgData :: RecMsg -> Put
+putRecMsgData = \case
+  RecMsgChan _ cd -> putChanData cd
+  RecMsgSysEx sed -> put sed
+  RecMsgMeta md -> put md
 
 -- | NOTE: Time delta is in number of ticks since previous message
 data Event = Event
   { evDelta :: !VarWord
-  , evMsg :: !Msg
+  , evMsg :: !RecMsg
   }
   deriving stock (Eq, Ord, Show, Generic)
   deriving (Arb) via (ArbGeneric Event)
@@ -669,7 +905,7 @@ byteSizeEventsLoop !bc !mayLastStatus = \case
   Empty -> bc
   Event td msg :<| mes ->
     let !tc = byteSize td
-        !mayNextStatus = statusAsChan (msgStatus msg)
+        !mayNextStatus = statusAsChan (extractStatus msg)
         !mc = byteSize msg
         !sc = case mayNextStatus of
           Just _ | mayNextStatus == mayLastStatus -> mc - 1
@@ -684,28 +920,12 @@ instance ByteSized Track where
   byteSize (Track events) = 8 + byteSizeEvents events
 
 -- private
-getEventsLoop :: Int -> Seq Event -> Maybe ChanStatus -> Get (Seq Event)
-getEventsLoop !numLeft !acc !mayLastStatus =
-  if numLeft <= 0
-    then pure acc
-    else do
-      td <- get
-      msg <- getMsgRunning mayLastStatus
-      let !me = Event td msg
-          !mayNextStatus = statusAsChan (msgStatus msg)
-      getEventsLoop (numLeft - 1) (acc :|> me) mayNextStatus
-
--- private
-getEvents :: Int -> Get (Seq Event)
-getEvents numLeft = getEventsLoop numLeft Empty Nothing
-
--- private
 putEventsLoop :: Maybe ChanStatus -> Seq Event -> Put
 putEventsLoop !mayLastStatus = \case
   Empty -> pure ()
   Event td msg :<| mes -> do
     put td
-    mayNextStatus <- putMsgRunning mayLastStatus msg
+    mayNextStatus <- putMsgRunning putRecMsgData mayLastStatus msg
     putEventsLoop mayNextStatus mes
 
 -- private
@@ -717,13 +937,14 @@ getEventsScope bc = getExact bc (go Empty Nothing)
  where
   go !acc !mayLastStatus = do
     sz <- getRemainingSize
+    -- traceM $ "SIZE LEFT : " ++ show sz
     if sz == 0
       then pure acc
       else do
         td <- get
-        msg <- getMsgRunning mayLastStatus
+        msg <- getMsgRunning getRecMsgWithStatus mayLastStatus
         let !me = Event td msg
-            !mayNextStatus = statusAsChan (msgStatus msg)
+            !mayNextStatus = statusAsChan (extractStatus msg)
         go (acc :|> me) mayNextStatus
 
 instance Binary Track where
@@ -737,54 +958,70 @@ instance Binary Track where
     put @Word32BE (fromIntegral (byteSize t) - 8)
     putEvents events
 
-data FileType
-  = FileTypeSingle
-  | FileTypeMultiSync
-  | FileTypeMultiAsync
+data MidFileType
+  = MidFileTypeSingle
+  | MidFileTypeMultiSync
+  | MidFileTypeMultiAsync
   deriving stock (Eq, Ord, Enum, Bounded, Show)
-  deriving (ByteSized, StaticByteSized, Binary) via (ViaBinaryRep FileType)
-  deriving (Arb) via (ArbEnum FileType)
+  deriving (ByteSized, StaticByteSized, Binary) via (ViaBinaryRep MidFileType)
+  deriving (Arb) via (ArbEnum MidFileType)
 
-instance BinaryRep Word16BE FileType where
+instance BinaryRep Word16BE MidFileType where
   fromBinaryRep = \case
-    0 -> Right FileTypeSingle
-    1 -> Right FileTypeMultiSync
-    2 -> Right FileTypeMultiAsync
+    0 -> Right MidFileTypeSingle
+    1 -> Right MidFileTypeMultiSync
+    2 -> Right MidFileTypeMultiAsync
     other -> Left ("invalid midi file type: " ++ show other)
   toBinaryRep = \case
-    FileTypeSingle -> 0
-    FileTypeMultiSync -> 1
-    FileTypeMultiAsync -> 2
+    MidFileTypeSingle -> 0
+    MidFileTypeMultiSync -> 1
+    MidFileTypeMultiAsync -> 2
 
 -- private
--- TODO this is wrong
-type FileMagic = ExactBytes "MThd\NUL\NUL\NUL\ACK"
+type MidFileMagic = ExactBytes "MThd\NUL\NUL\NUL\ACK"
 
 -- | NOTE: Ticks could also be SMTPE-related, but we don't support that here
-data File = File
-  { fileType :: !FileType
-  , fileTicks :: !Word16
-  , fileTracks :: !(Seq Track)
+data MidFile = MidFile
+  { mfType :: !MidFileType
+  , mfTicks :: !Word16
+  , mfTracks :: !(Seq Track)
   }
   deriving stock (Eq, Ord, Show)
 
-instance Arb File where
-  arb = File <$> arb <*> arb <*> arbSeq 0 3
+instance Arb MidFile where
+  arb = MidFile <$> arb <*> arb <*> arbSeq 0 3
 
-instance ByteSized File where
-  byteSize (File _ _ tracks) = 14 + byteSizeFoldable tracks
+instance ByteSized MidFile where
+  byteSize (MidFile _ _ tracks) = 14 + byteSizeFoldable tracks
 
-instance Binary File where
+instance Binary MidFile where
   get = do
-    _ <- get @FileMagic
+    _ <- get @MidFileMagic
     ty <- get
-    Word16BE ticks <- get
     Word16BE numTracks <- get
+    Word16BE ticks <- get
+    -- traceM ("NUM TRACKS : " ++ show numTracks)
     tracks <- getSeq (fromIntegral numTracks) get
-    pure (File ty ticks tracks)
-  put (File ty ticks tracks) = do
-    put @FileMagic (ExactBytes ())
+    pure (MidFile ty ticks tracks)
+  put (MidFile ty ticks tracks) = do
+    put @MidFileMagic (ExactBytes ())
     put ty
-    put (Word16BE ticks)
     put (Word16BE (fromIntegral (Seq.length tracks)))
+    put (Word16BE ticks)
     putSeq put tracks
+
+newtype SysExDump = SysExDump {unSysExDump :: Seq SysExData}
+  deriving stock (Show)
+  deriving newtype (Eq, Ord)
+
+instance Arb SysExDump where
+  arb = fmap SysExDump (arbSeq 0 3)
+
+instance ByteSized SysExDump where
+  byteSize (SysExDump ds) = fromIntegral (Seq.length ds) + byteSizeFoldable ds
+
+instance Binary SysExDump where
+  get = fmap SysExDump $ getRemainingSeq $ do
+    getExpect @Word8 "sysex status byte" get 0xF0
+    get
+  put = putSeq (\d -> put @Word8 0xF0 *> put d) . unSysExDump

@@ -8,6 +8,8 @@ module Midiot.Arb
   , genSum
   , arbList
   , arbSeq
+  , arbString
+  , arbSBS
   , Arb (..)
   , ArbSigned (..)
   , ArbUnsigned (..)
@@ -18,6 +20,9 @@ where
 
 import Control.Applicative (liftA2)
 import Data.Bits (FiniteBits (..))
+import Data.ByteString.Internal (w2c)
+import Data.ByteString.Short (ShortByteString)
+import qualified Data.ByteString.Short as BSS
 import Data.Int (Int16, Int8)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Proxy (Proxy)
@@ -50,6 +55,12 @@ arbList mn mx = FG.list (FR.between (mn, mx)) arb
 arbSeq :: Arb a => Word -> Word -> Gen (Seq a)
 arbSeq mn mx = fmap Seq.fromList (arbList mn mx)
 
+arbString :: Word -> Word -> Gen String
+arbString = arbList
+
+arbSBS :: Word -> Word -> Gen ShortByteString
+arbSBS mn mx = fmap BSS.pack (arbList mn mx)
+
 class Arb a where
   arb :: Gen a
 
@@ -60,6 +71,9 @@ deriving via (ArbSigned Int8) instance Arb Int8
 deriving via (ArbUnsigned Word16) instance Arb Word16
 
 deriving via (ArbSigned Int16) instance Arb Int16
+
+instance Arb Char where
+  arb = fmap w2c arb
 
 newtype ArbSigned a = ArbSigned {unArbSigned :: a}
 

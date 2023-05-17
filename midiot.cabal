@@ -30,6 +30,7 @@ library
       Midiot.Codec
       Midiot.Iface
       Midiot.Msg
+      Midiot.Parse
       Midiot.Time
   other-modules:
       Paths_midiot
