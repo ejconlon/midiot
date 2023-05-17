@@ -1,8 +1,7 @@
 module Main (main) where
 
 import Control.Monad (unless, when)
-import Dahdit (Binary, ByteCount (..), ByteSized (..), GetError, StaticByteSized (..), decode, decodeFile, encode)
-import Data.Bifunctor (first)
+import Dahdit (Binary, ByteCount (..), ByteSized (..), GetError, StaticByteSized (..), encode)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Short as BSS
 import Data.Foldable (for_)
@@ -10,7 +9,7 @@ import Data.Proxy (Proxy (..))
 import Midiot.Arb (Arb (..), arbSBS)
 import Midiot.Binary
 import Midiot.Msg
-import Midiot.Parse (Eof (..))
+import Midiot.Parse (decodeEof, decodeFileEof, reDecodeEof)
 import System.Directory (listDirectory)
 import System.FilePath (takeExtension, (</>))
 import Test.Falsify.Generator (Gen)
@@ -42,7 +41,7 @@ runRTCase (RTCase name gen mayStaBc) = testProperty name $ do
   for_ mayStaBc (assertEq startDynBc)
   let encVal = encode startVal
       encBc = ByteCount (BSS.length encVal)
-  let (endRes, endConBc) = first (fmap unEof) (decode encVal)
+  let (endRes, endConBc) = decodeEof encVal
   case endRes of
     Left err -> fail ("Decode of " ++ name ++ " failed: " ++ show err)
     Right endVal -> do
@@ -95,14 +94,14 @@ findFiles = do
   pure (xtraFiles ++ midiFiles)
 
 decodeFileAs :: Binary a => Proxy a -> FilePath -> IO (Either GetError a, ByteCount)
-decodeFileAs _ = fmap (first (fmap unEof)) . decodeFile
+decodeFileAs _ = decodeFileEof
 
 shouldFail :: FilePath -> Bool
 shouldFail fn =
   let xs = fmap (\p -> BS.pack ("/test-" ++ p ++ "-")) ["illegal", "non-midi", "corrupt"]
   in  any (`BS.isInfixOf` BS.pack fn) xs
 
-runFileCase :: (ByteSized a, Binary a) => Proxy a -> FilePath -> IO ()
+runFileCase :: (ByteSized a, Binary a, Eq a, Show a) => Proxy a -> FilePath -> IO ()
 runFileCase prox fn = do
   (fileRes, fileBc) <- decodeFileAs prox fn
   case fileRes of
@@ -112,8 +111,15 @@ runFileCase prox fn = do
         (fail ("Decode " ++ fn ++ " failed at " ++ show (unByteCount fileBc) ++ ": " ++ show err))
     Right fileVal -> do
       when (shouldFail fn) (fail "Expected failure")
-      -- TODO test rendering
-      unless (byteSize fileVal <= fileBc) (fail "Bad byte size")
+      -- Rendered size should not be larger than input size
+      let dynBc = byteSize fileVal
+      unless (dynBc <= fileBc) (fail "Bad byte size")
+      let (endRes, endConBc) = reDecodeEof fileVal
+      case endRes of
+        Left err -> fail ("Re-decode " ++ fn ++ " failed: " ++ show err)
+        Right endVal -> do
+          endVal @?= fileVal
+          endConBc @?= dynBc
 
 testFileCase :: FilePath -> TestTree
 testFileCase fn = testCase fn $ do

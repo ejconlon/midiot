@@ -1,10 +1,14 @@
 module Midiot.Parse
-  ( Eof (..)
+  ( decodeEof
+  , decodeFileEof
+  , reDecodeEof
   )
 where
 
 import Control.Monad (unless)
-import Dahdit (Binary (..), ByteCount (..), ByteSized, StaticByteSized, getRemainingSize)
+import Dahdit (Binary (..), BinaryTarget, ByteCount (..), ByteSized, GetError, StaticByteSized, decode, decodeFile, encode, getRemainingSize)
+import Data.Bifunctor (first)
+import Data.ByteString.Short (ShortByteString)
 
 newtype Eof a = Eof {unEof :: a}
   deriving stock (Show)
@@ -17,3 +21,12 @@ instance Binary a => Binary (Eof a) where
     unless (b == 0) (fail ("Expected end of input but had bytes remaining: " ++ show (unByteCount b)))
     pure (Eof a)
   put = put . unEof
+
+decodeEof :: (BinaryTarget z, Binary a) => z -> (Either GetError a, ByteCount)
+decodeEof = first (fmap unEof) . decode
+
+decodeFileEof :: Binary a => FilePath -> IO (Either GetError a, ByteCount)
+decodeFileEof = fmap (first (fmap unEof)) . decodeFile
+
+reDecodeEof :: (Binary a, ByteSized a) => a -> (Either GetError a, ByteCount)
+reDecodeEof = decodeEof . encode @_ @ShortByteString
