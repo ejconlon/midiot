@@ -13,6 +13,8 @@ module Midiot.Msg
   , PitchBend (..)
   , Song (..)
   , Position (..)
+  , ShortManf (..)
+  , LongManf (..)
   , Manf (..)
   , QuarterTimeUnit (..)
   , QuarterTime (..)
@@ -25,7 +27,8 @@ module Midiot.Msg
   , ChanVoiceData (..)
   , ChanModeData (..)
   , ChanData (..)
-  , SysExType (..)
+  , UnivSysEx (..)
+  , ManfSysEx (..)
   , SysExData (..)
   , CommonData (..)
   , LiveMsg (..)
@@ -43,7 +46,7 @@ module Midiot.Msg
 where
 
 import Control.DeepSeq (NFData)
-import Control.Monad (unless, void, when)
+import Control.Monad (unless, void)
 import Control.Newtype (Newtype)
 import Dahdit (Binary (..), BinaryRep (..), ByteCount, ByteSized (..), ExactBytes (..), Get, Put, PutM, StaticByteSized (..), ViaBinaryRep (..), ViaGeneric (..), ViaStaticByteSized (..), Word16BE (..), Word32BE (..), byteSizeFoldable, getByteString, getExact, getExpect, getLookAhead, getRemainingSeq, getRemainingSize, getSeq, putByteString, putSeq)
 import Data.Bits (Bits (..))
@@ -57,8 +60,9 @@ import Data.ShortWord (Word4)
 import Data.String (IsString (..))
 import Data.Word (Word16, Word8)
 import GHC.Generics (Generic)
-import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..), arbSBS, arbSeq, genEnum, genSum, genUnsigned)
+import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..), arbList, arbSBS, arbSeq, genSum, genUnsigned)
 import Midiot.Binary (BoundedBinary (..), MidiInt14 (..), MidiWord14 (..), MidiWord7 (..), VarWord (..))
+import Test.Falsify.Generator (Gen)
 import qualified Test.Falsify.Generator as FG
 import qualified Test.Falsify.Range as FR
 
@@ -124,13 +128,45 @@ newtype Position = Position {unPosition :: MidiWord14}
   deriving newtype
     (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
-newtype Manf = Manf {unManf :: MidiWord7}
+newtype ShortManf = ShortManf {unShortManf :: MidiWord7}
+  deriving stock (Show)
+  deriving newtype
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+
+instance Arb ShortManf where
+  arb = do
+    i <- arb @MidiWord7
+    if i == 0x00 || i == 0x7E || i == 0x7F
+      then arb
+      else pure (ShortManf i)
+
+newtype LongManf = LongManf {unLongManf :: Word16}
   deriving stock (Show)
   deriving newtype
     (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
 
+data Manf = ManfShort !ShortManf | ManfLong !LongManf
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (Arb) via (ArbGeneric Manf)
+
+instance ByteSized Manf where
+  byteSize = \case
+    ManfShort _ -> 1
+    ManfLong _ -> 3
+
+instance Binary Manf where
+  get = do
+    sm <- get @ShortManf
+    if sm == 0
+      then fmap (ManfLong . LongManf) get
+      else pure (ManfShort sm)
+  put = \case
+    ManfShort sm -> put sm
+    ManfLong lm -> put @Word8 0 *> put lm
+
+-- | Manf id usable for non-commercial applications
 eduManf :: Manf
-eduManf = Manf 0x7D
+eduManf = ManfShort (ShortManf 0x7D)
 
 data QuarterTimeUnit
   = QTUFramesLow
@@ -673,45 +709,88 @@ putChanData = \case
   ChanDataVoice cvd -> putChanVoiceData cvd
   ChanDataMode cmd -> putChanModeData cmd
 
-data SysExType = SysExTypeEnd | SysExTypeContinue
-  deriving stock (Eq, Ord, Show, Enum, Bounded)
+-- Gets bytestring until delimiter (consuming delimiter but not including in string)
+getPayload :: Get ShortByteString
+getPayload = go
+ where
+  go = do
+    len <- getLookAhead (goFind 0)
+    s <- getByteString len
+    _ <- get @Word8
+    pure s
+  goFind !i = do
+    w <- get @Word8
+    if w == 0xF7
+      then pure i
+      else goFind (i + 1)
 
-data SysExData = SysExData
-  { sedPayload :: !ShortByteString
-  , sedType :: !SysExType
+-- Generate a bytestring not including the delimiter
+genPayload :: Gen ShortByteString
+genPayload = fmap (BSS.pack . fmap fromIntegral) (arbList @MidiWord7 0 3)
+
+data UnivSysEx = UnivSysEx
+  { useSubId :: !Word8
+  , usePayload :: !ShortByteString
   }
-  deriving stock (Show)
-  deriving stock (Eq, Ord)
+  deriving stock (Eq, Ord, Show)
 
-instance Arb SysExData where
-  arb = do
-    s <- arbSBS 0 3
-    ty <-
-      if not (BSS.null s) && BSS.last s == 0x7F
-        then pure SysExTypeEnd
-        else genEnum @SysExType
-    pure (SysExData s ty)
+instance Arb UnivSysEx where
+  arb = UnivSysEx <$> FG.choose (pure 0x7E) (pure 0x7F) <*> genPayload
+
+instance ByteSized UnivSysEx where
+  byteSize (UnivSysEx _ p) = 2 + byteSize p
+
+instance Binary UnivSysEx where
+  get = do
+    i <- get @Word8
+    unless (i == 0x7E || i == 0x7F) (fail ("Expected universal sys ex id: " ++ show i))
+    fmap (UnivSysEx i) getPayload
+  put (UnivSysEx i s) = do
+    put i
+    putByteString s
+    put @Word8 0xF7
+
+data ManfSysEx = ManfSysEx
+  { mseManf :: !Manf
+  , msePayload :: !ShortByteString
+  }
+  deriving stock (Eq, Ord, Show)
+
+instance Arb ManfSysEx where
+  arb = ManfSysEx <$> arb <*> genPayload
+
+instance ByteSized ManfSysEx where
+  byteSize (ManfSysEx m p) = 1 + byteSize m + byteSize p
+
+instance Binary ManfSysEx where
+  get = do
+    m <- get
+    fmap (ManfSysEx m) getPayload
+  put (ManfSysEx m s) = do
+    put m
+    putByteString s
+    put @Word8 0xF7
+
+data SysExData
+  = SysExDataUniv !UnivSysEx
+  | SysExDataManf !ManfSysEx
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (Arb) via (ArbGeneric SysExData)
 
 instance ByteSized SysExData where
-  byteSize (SysExData s ty) =
-    let trimLen = BSS.length s
-        realLen = trimLen + if ty == SysExTypeEnd then 1 else 0
-    in  byteSize (VarWord (fromIntegral realLen)) + fromIntegral realLen
+  byteSize = \case
+    SysExDataUniv x -> byteSize x
+    SysExDataManf y -> byteSize y
 
 instance Binary SysExData where
   get = do
-    len <- get @VarWord
-    s <- getByteString (fromIntegral len)
-    let mx = BSS.unsnoc s
-    pure $ case mx of
-      Just (s', 0x7F) -> SysExData s' SysExTypeEnd
-      _ -> SysExData s SysExTypeContinue
-  put (SysExData s ty) = do
-    let trimLen = BSS.length s
-        realLen = trimLen + if ty == SysExTypeEnd then 1 else 0
-    put (VarWord (fromIntegral realLen))
-    putByteString s
-    when (ty == SysExTypeEnd) (put @Word8 0x7F)
+    peek <- getLookAhead (get @Word8)
+    if peek == 0x7E || peek == 0x7F
+      then fmap SysExDataUniv get
+      else fmap SysExDataManf get
+  put = \case
+    SysExDataUniv x -> put x
+    SysExDataManf y -> put y
 
 data CommonData
   = CommonDataTimeFrame !QuarterTime
