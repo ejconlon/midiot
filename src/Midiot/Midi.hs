@@ -50,12 +50,13 @@ where
 import Control.DeepSeq (NFData)
 import Control.Monad (unless, void)
 import Control.Newtype (Newtype)
-import Dahdit (Binary (..), BinaryRep (..), ByteCount, ByteSized (..), ExactBytes (..), Get, Put, PutM, StaticByteSized (..), ViaBinaryRep (..), ViaGeneric (..), ViaStaticByteSized (..), Word16BE (..), Word32BE (..), byteSizeFoldable, getByteString, getExact, getExpect, getLookAhead, getRemainingSeq, getRemainingSize, getSeq, putByteString, putSeq)
+import Dahdit (Binary (..), BinaryRep (..), ByteCount (..), ExactBytes (..), Get, Put, PutM, StaticByteSized (..), ViaBinaryRep (..), ViaGeneric (..), Word16BE (..), Word32BE (..), byteSizeFoldable, getByteString, getExact, getExpect, getLookAhead, getRemainingSeq, getRemainingSize, getSeq, putByteString, putSeq)
 import Data.Bits (Bits (..))
 import Data.ByteString.Short (ShortByteString)
 import qualified Data.ByteString.Short as BSS
 import Data.Hashable (Hashable)
 import qualified Data.List.NonEmpty as NE
+import Data.Proxy (Proxy (..))
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.ShortWord (Word4)
@@ -70,7 +71,7 @@ import qualified Test.Falsify.Range as FR
 
 newtype Channel = Channel {unChannel :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized)
   deriving (Binary) via (BoundedBinary "Channel" Channel MidiWord7)
   deriving (Arb) via (ArbEnum Channel)
 
@@ -83,57 +84,57 @@ instance Bounded Channel where
 newtype ChannelCount = ChannelCount {unChannelCount :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 newtype Note = Note {unNote :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 newtype Velocity = Velocity {unVelocity :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 newtype ControlNum = ControlNum {unControlNum :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 newtype ControlVal = ControlVal {unControlVal :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 newtype Pressure = Pressure {unPressure :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 newtype ProgramNum = ProgramNum {unProgramNum :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 newtype PitchBend = PitchBend {unPitchBend :: MidiInt14}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 newtype Song = Song {unSong :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 newtype Position = Position {unPosition :: MidiWord14}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 newtype ShortManf = ShortManf {unShortManf :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
 
 instance Arb ShortManf where
   arb = do
@@ -145,18 +146,16 @@ instance Arb ShortManf where
 newtype LongManf = LongManf {unLongManf :: Word16}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, ByteSized, StaticByteSized, Binary, Arb)
+    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary, Arb)
 
 data Manf = ManfShort !ShortManf | ManfLong !LongManf
   deriving stock (Eq, Ord, Show, Generic)
   deriving (Arb) via (ArbGeneric Manf)
 
-instance ByteSized Manf where
+instance Binary Manf where
   byteSize = \case
     ManfShort _ -> 1
     ManfLong _ -> 3
-
-instance Binary Manf where
   get = do
     sm <- get @ShortManf
     if sm == 0
@@ -193,13 +192,11 @@ data QuarterTime = QuarterTime
 instance Arb QuarterTime where
   arb = QuarterTime <$> arb <*> genUnsigned
 
-instance ByteSized QuarterTime where
-  byteSize _ = 1
-
 instance StaticByteSized QuarterTime where
   staticByteSize _ = 1
 
 instance Binary QuarterTime where
+  byteSize _ = 1
   get = do
     w <- get @Word8
     let x = shiftR w 4
@@ -269,7 +266,6 @@ data LiveStatus
   | LiveStatusSysCommon !CommonStatus
   | LiveStatusSysRt !RtStatus
   deriving stock (Eq, Ord, Show, Generic)
-  deriving (ByteSized) via (ViaStaticByteSized LiveStatus)
   deriving (Arb) via (ArbGeneric LiveStatus)
 
 instance StaticByteSized LiveStatus where
@@ -287,6 +283,7 @@ instance HasChanStatus LiveStatus where
   statusFromChan = LiveStatusChan
 
 instance Binary LiveStatus where
+  byteSize _ = 1
   get = do
     b <- get @Word8
     let x = b .&. 0xF0
@@ -352,7 +349,6 @@ data RecStatus
   | RecStatusSysEx
   | RecStatusMeta
   deriving stock (Eq, Ord, Show, Generic)
-  deriving (ByteSized) via (ViaStaticByteSized RecStatus)
   deriving (Arb) via (ArbGeneric RecStatus)
 
 instance StaticByteSized RecStatus where
@@ -370,6 +366,7 @@ instance HasChanStatus RecStatus where
   statusFromChan = RecStatusChan
 
 instance Binary RecStatus where
+  byteSize _ = 1
   get = do
     b <- get @Word8
     let x = b .&. 0xF0
@@ -411,7 +408,6 @@ data ShortStatus
   | ShortStatusSysCommon !CommonStatus
   | ShortStatusSysRt !RtStatus
   deriving stock (Eq, Ord, Show, Generic)
-  deriving (ByteSized) via (ViaStaticByteSized ShortStatus)
   deriving (Arb) via (ArbGeneric ShortStatus)
 
 instance StaticByteSized ShortStatus where
@@ -429,6 +425,7 @@ instance HasChanStatus ShortStatus where
   statusFromChan = ShortStatusChan
 
 instance Binary ShortStatus where
+  byteSize _ = 1
   get = do
     b <- get @Word8
     let x = b .&. 0xF0
@@ -492,10 +489,8 @@ newtype MetaString = MetaString {unMetaString :: ShortByteString}
   deriving stock (Show)
   deriving newtype (Eq, Ord, IsString)
 
-instance ByteSized MetaString where
-  byteSize = succ . fromIntegral . BSS.length . unMetaString
-
 instance Binary MetaString where
+  byteSize = succ . fromIntegral . BSS.length . unMetaString
   get = do
     len <- get @Word8
     bss <- getByteString (fromIntegral len)
@@ -515,7 +510,7 @@ data MetaData = MetaData
   , mdBody :: !MetaString
   }
   deriving stock (Eq, Ord, Show, Generic)
-  deriving (ByteSized, Binary) via (ViaGeneric MetaData)
+  deriving (Binary) via (ViaGeneric MetaData)
 
 instance Arb MetaData where
   arb = MetaData <$> arb <*> fmap MetaString (arbSBS 0 3)
@@ -559,7 +554,7 @@ instance Arb MetaData where
 --       ]
 --     genS = MetaString <$> arbSBS 0 3
 
--- instance ByteSized MetaData where
+-- instance Binary MetaData where
 --   byteSize = succ . \case
 --     MDSeqNum _ -> 2
 --     MDText t -> byteSize t
@@ -576,8 +571,6 @@ instance Arb MetaData where
 --     MDTimeSig {} -> 4
 --     MDKeySig _ _ -> 2
 --     MDSeqSpecific ss -> byteSize ss
-
--- instance Binary MetaData where
 --   get = do
 --     m <- get @Word8
 --     case m of
@@ -640,15 +633,15 @@ instance Arb ChanVoiceData where
           ]
     genCN = fmap (ControlNum . MidiWord7) (FG.integral (FR.between (0x00, 0x77)))
 
-instance ByteSized ChanVoiceData where
-  byteSize = \case
-    ChanVoiceDataNoteOff _ _ -> 2
-    ChanVoiceDataNoteOn _ _ -> 2
-    ChanVoiceKeyAftertouch _ _ -> 2
-    ChanVoiceControlChange _ _ -> 2
-    ChanVoiceProgramChange _ -> 1
-    ChanVoiceChanAftertouch _ -> 1
-    ChanVoicePitchBend _ -> 2
+byteSizeChanVoiceData :: ChanVoiceData -> ByteCount
+byteSizeChanVoiceData = \case
+  ChanVoiceDataNoteOff _ _ -> 2
+  ChanVoiceDataNoteOn _ _ -> 2
+  ChanVoiceKeyAftertouch _ _ -> 2
+  ChanVoiceControlChange _ _ -> 2
+  ChanVoiceProgramChange _ -> 1
+  ChanVoiceChanAftertouch _ -> 1
+  ChanVoicePitchBend _ -> 2
 
 -- private
 putChanVoiceData :: ChanVoiceData -> Put
@@ -672,7 +665,6 @@ data ChanModeData
   | ChanModeMonoOn !ChannelCount
   | ChanModeMonoOff
   deriving stock (Eq, Ord, Show, Generic)
-  deriving (ByteSized) via (ViaStaticByteSized ChanModeData)
   deriving (Arb) via (ArbGeneric ChanModeData)
 
 instance StaticByteSized ChanModeData where
@@ -715,10 +707,10 @@ data ChanData
   deriving stock (Eq, Ord, Show, Generic)
   deriving (Arb) via (ArbGeneric ChanData)
 
-instance ByteSized ChanData where
-  byteSize = \case
-    ChanDataVoice cvd -> byteSize cvd
-    ChanDataMode cmd -> byteSize cmd
+byteSizeChanData :: ChanData -> ByteCount
+byteSizeChanData = \case
+  ChanDataVoice cvd -> byteSizeChanVoiceData cvd
+  ChanDataMode _ -> staticByteSize (Proxy @ChanModeData)
 
 chanDataType :: ChanData -> ChanStatusType
 chanDataType = \case
@@ -820,10 +812,8 @@ data UnivSysEx = UnivSysEx
 instance Arb UnivSysEx where
   arb = UnivSysEx <$> FG.choose (pure 0x7E) (pure 0x7F) <*> genPayload
 
-instance ByteSized UnivSysEx where
-  byteSize (UnivSysEx _ p) = 2 + byteSize p
-
 instance Binary UnivSysEx where
+  byteSize (UnivSysEx _ p) = 2 + ByteCount (BSS.length p)
   get = do
     i <- get @Word8
     unless (i == 0x7E || i == 0x7F) (fail ("Expected universal sys ex id: " ++ show i))
@@ -842,10 +832,8 @@ data ManfSysEx = ManfSysEx
 instance Arb ManfSysEx where
   arb = ManfSysEx <$> arb <*> genPayload
 
-instance ByteSized ManfSysEx where
-  byteSize (ManfSysEx m p) = 1 + byteSize m + byteSize p
-
 instance Binary ManfSysEx where
+  byteSize (ManfSysEx m p) = 1 + byteSize m + ByteCount (BSS.length p)
   get = do
     m <- get
     fmap (ManfSysEx m) getPayload
@@ -860,12 +848,10 @@ data SysExData
   deriving stock (Eq, Ord, Show, Generic)
   deriving (Arb) via (ArbGeneric SysExData)
 
-instance ByteSized SysExData where
+instance Binary SysExData where
   byteSize = \case
     SysExDataUniv x -> byteSize x
     SysExDataManf y -> byteSize y
-
-instance Binary SysExData where
   get = do
     peek <- getLookAhead (get @Word8)
     if peek == 0x7E || peek == 0x7F
@@ -883,12 +869,12 @@ data CommonData
   deriving stock (Eq, Ord, Show, Generic)
   deriving (Arb) via (ArbGeneric CommonData)
 
-instance ByteSized CommonData where
-  byteSize = \case
-    CommonDataTimeFrame _ -> 1
-    CommonDataSongPointer _ -> 2
-    CommonDataSongSelect _ -> 1
-    CommonDataTuneRequest -> 0
+byteSizeCommonData :: CommonData -> ByteCount
+byteSizeCommonData = \case
+  CommonDataTimeFrame _ -> 1
+  CommonDataSongPointer _ -> 2
+  CommonDataSongSelect _ -> 1
+  CommonDataTuneRequest -> 0
 
 getCommonData :: CommonStatus -> Get CommonData
 getCommonData = \case
@@ -920,15 +906,13 @@ instance HasChanData LiveStatus LiveMsg where
   extractStatus = liveMsgStatus
   embedChanData = LiveMsgChan
 
-instance ByteSized LiveMsg where
+instance Binary LiveMsg where
   byteSize =
     succ . \case
-      LiveMsgChan _ cd -> byteSize cd
+      LiveMsgChan _ cd -> byteSizeChanData cd
       LiveMsgSysEx sed -> byteSize sed
-      LiveMsgSysCommon cd -> byteSize cd
+      LiveMsgSysCommon cd -> byteSizeCommonData cd
       LiveMsgSysRt _ -> 0
-
-instance Binary LiveMsg where
   get = get @LiveStatus >>= getLiveMsgWithStatus
   put = void . putMsgRunning putLiveMsgData Nothing
 
@@ -1023,14 +1007,12 @@ instance HasChanData RecStatus RecMsg where
   extractStatus = recMsgStatus
   embedChanData = RecMsgChan
 
-instance ByteSized RecMsg where
+instance Binary RecMsg where
   byteSize =
     succ . \case
-      RecMsgChan _ cd -> byteSize cd
+      RecMsgChan _ cd -> byteSizeChanData cd
       RecMsgSysEx sed -> byteSize sed
       RecMsgMeta md -> byteSize md
-
-instance Binary RecMsg where
   get = get @RecStatus >>= getRecMsgWithStatus
   put = void . putMsgRunning putRecMsgData Nothing
 
@@ -1057,14 +1039,12 @@ instance HasChanData ShortStatus ShortMsg where
   extractStatus = shortMsgStatus
   embedChanData = ShortMsgChan
 
-instance ByteSized ShortMsg where
+instance Binary ShortMsg where
   byteSize =
     succ . \case
-      ShortMsgChan _ cd -> byteSize cd
-      ShortMsgSysCommon cd -> byteSize cd
+      ShortMsgChan _ cd -> byteSizeChanData cd
+      ShortMsgSysCommon cd -> byteSizeCommonData cd
       ShortMsgSysRt _ -> 0
-
-instance Binary ShortMsg where
   get = get @ShortStatus >>= getShortMsgWithStatus
   put = void . putMsgRunning putShortMsgData Nothing
 
@@ -1128,9 +1108,6 @@ byteSizeEventsLoop !bc !mayLastStatus = \case
 byteSizeEvents :: Seq Event -> ByteCount
 byteSizeEvents = byteSizeEventsLoop 0 Nothing
 
-instance ByteSized Track where
-  byteSize (Track events) = 8 + byteSizeEvents events
-
 -- private
 putEventsLoop :: Maybe ChanStatus -> Seq Event -> Put
 putEventsLoop !mayLastStatus = \case
@@ -1160,6 +1137,8 @@ getEventsScope bc = getExact bc (go Empty Nothing)
         go (acc :|> me) mayNextStatus
 
 instance Binary Track where
+  byteSize (Track events) = 8 + byteSizeEvents events
+
   get = do
     _ <- get @TrackMagic
     chunkSize <- get @Word32BE
@@ -1175,7 +1154,7 @@ data MidFileType
   | MidFileTypeMultiSync
   | MidFileTypeMultiAsync
   deriving stock (Eq, Ord, Enum, Bounded, Show)
-  deriving (ByteSized, StaticByteSized, Binary) via (ViaBinaryRep MidFileType)
+  deriving (StaticByteSized, Binary) via (ViaBinaryRep MidFileType)
   deriving (Arb) via (ArbEnum MidFileType)
 
 instance BinaryRep Word16BE MidFileType where
@@ -1203,10 +1182,8 @@ data MidFile = MidFile
 instance Arb MidFile where
   arb = MidFile <$> arb <*> arb <*> arbSeq 0 3
 
-instance ByteSized MidFile where
-  byteSize (MidFile _ _ tracks) = 14 + byteSizeFoldable tracks
-
 instance Binary MidFile where
+  byteSize (MidFile _ _ tracks) = 14 + byteSizeFoldable tracks
   get = do
     _ <- get @MidFileMagic
     ty <- get
@@ -1229,10 +1206,8 @@ newtype SysExDump = SysExDump {unSysExDump :: Seq SysExData}
 instance Arb SysExDump where
   arb = fmap SysExDump (arbSeq 0 3)
 
-instance ByteSized SysExDump where
-  byteSize (SysExDump ds) = fromIntegral (Seq.length ds) + byteSizeFoldable ds
-
 instance Binary SysExDump where
+  byteSize (SysExDump ds) = fromIntegral (Seq.length ds) + byteSizeFoldable ds
   get = fmap SysExDump $ getRemainingSeq $ do
     getExpect @Word8 "sysex status byte" get 0xF0
     get

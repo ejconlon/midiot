@@ -68,7 +68,7 @@ library
     , base >=4.12 && <5
     , bytestring
     , containers
-    , dahdit ==0.3.*
+    , dahdit ==0.4.*
     , data-sword >=0.2.0.4 && <0.3
     , deepseq
     , falsify
@@ -117,7 +117,7 @@ executable midiot-exe
     , base >=4.12 && <5
     , bytestring
     , containers
-    , dahdit ==0.3.*
+    , dahdit ==0.4.*
     , data-sword >=0.2.0.4 && <0.3
     , deepseq
     , falsify
@@ -168,7 +168,7 @@ test-suite midiot-test
     , base >=4.12 && <5
     , bytestring
     , containers
-    , dahdit ==0.3.*
+    , dahdit ==0.4.*
     , data-sword >=0.2.0.4 && <0.3
     , deepseq
     , directory

@@ -1,13 +1,13 @@
 module Midiot.Osc where
 
 import Control.Monad (replicateM_)
+import Dahdit
 import Data.ByteString.Short (ShortByteString)
 import Data.Int (Int32, Int64)
 import Data.Sequence (Seq)
 import Data.Word (Word8)
 import Midiot.Midi (ShortMsg)
 import Midiot.Time (MonoTime)
-import Dahdit
 
 data DatumType
   = DatumTypeInt32
@@ -76,7 +76,7 @@ datumType = \case
 pad4 :: ByteCount -> ByteCount
 pad4 x = x + (4 - rem x 4)
 
-byteSizePad4 :: ByteSized a => a -> ByteCount
+byteSizePad4 :: Binary a => a -> ByteCount
 byteSizePad4 = pad4 . byteSize
 
 staticByteSizePad4 :: StaticByteSized a => Proxy a -> ByteCount
@@ -90,25 +90,23 @@ getPad4 = do
   replicateM_ (rem (unByteCount (y - x)) 4) (getExpect "pad" getWord8 0)
   pure a
 
-putPad4 :: (ByteSized a, Binary a) => a -> Put
+putPad4 :: Binary a => a -> Put
 putPad4 a = do
   let x = byteSize a
   put a
   replicateM_ (rem (unByteCount x) 4) (put @Word8 0)
 
-newtype Pad4 a = Pad4 { unPad4 :: a }
-
-instance ByteSized a => ByteSized (Pad4 a) where
-  byteSize = byteSizePad4
+newtype Pad4 a = Pad4 {unPad4 :: a}
 
 instance StaticByteSized a => StaticByteSized (Pad4 a) where
   staticByteSize = staticByteSizePad4
 
-instance (ByteSized a, Binary a) => Binary (Pad4 a) where
+instance Binary a => Binary (Pad4 a) where
+  byteSize = byteSizePad4
   get = getPad4
   put = putPad4
 
-newtype Sig = Sig { unSig :: Seq DatumType }
+newtype Sig = Sig {unSig :: Seq DatumType}
   deriving stock (Show)
   deriving newtype (Eq, Ord)
 

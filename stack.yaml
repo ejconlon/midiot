@@ -7,7 +7,10 @@ packages:
 - .
 
 extra-deps:
-- dahdit-0.3.0
+# TODO Use Hackage version when released
+# - dahdit-0.4.0
+- git: git@github.com:ejconlon/dahdit.git
+  commit: a9c81856d0431956127de7b7a2bda37811cdae61
 # TODO Use Hackage version when released
 # - data-sword-0.2.0.4
 - git: git@github.com:ejconlon/data-sword.git

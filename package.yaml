@@ -15,7 +15,7 @@ description: Please see the README on GitHub at <https://github.com/ejconlon/mid
 
 dependencies:
 - base >= 4.12 && < 5
-- dahdit >= 0.3 && < 0.4
+- dahdit >= 0.4 && < 0.5
 - bytestring
 - containers
 - primitive >= 0.8 && < 0.9

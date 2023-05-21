@@ -1,7 +1,7 @@
 module Main (main) where
 
 import Control.Monad (unless, when)
-import Dahdit (Binary, ByteCount (..), ByteSized (..), GetError, StaticByteSized (..), encode)
+import Dahdit (Binary (..), ByteCount (..), GetError, StaticByteSized (..), encode)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Short as BSS
 import Data.Foldable (for_)
@@ -20,9 +20,9 @@ import Test.Tasty.Falsify (Property, testProperty)
 import Test.Tasty.HUnit (testCase, (@?=))
 
 data RTCase where
-  RTCase :: (Eq a, Show a, ByteSized a, Binary a) => String -> Gen a -> Maybe ByteCount -> RTCase
+  RTCase :: (Eq a, Show a, Binary a) => String -> Gen a -> Maybe ByteCount -> RTCase
 
-dynRTCase :: (Eq a, Show a, ByteSized a, Binary a) => String -> Gen a -> RTCase
+dynRTCase :: (Eq a, Show a, Binary a) => String -> Gen a -> RTCase
 dynRTCase name gen = RTCase name gen Nothing
 
 proxyFor :: f a -> Proxy a
@@ -107,7 +107,7 @@ shouldFail fn =
   let xs = fmap (\p -> BS.pack ("/test-" ++ p ++ "-")) ["illegal", "non-midi", "corrupt"]
   in  any (`BS.isInfixOf` BS.pack fn) xs
 
-runFileCase :: (ByteSized a, Binary a, Eq a, Show a) => Proxy a -> FilePath -> IO ()
+runFileCase :: (Binary a, Eq a, Show a) => Proxy a -> FilePath -> IO ()
 runFileCase prox fn = do
   (fileRes, fileBc) <- decodeFileAs prox fn
   case fileRes of

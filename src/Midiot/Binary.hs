@@ -12,7 +12,7 @@ where
 
 import Control.DeepSeq (NFData)
 import Control.Newtype (Newtype (..))
-import Dahdit (Binary (..), ByteSized (..), StaticByteSized (..), Word16BE (..))
+import Dahdit (Binary (..), StaticByteSized (..), Word16BE (..))
 import Data.Bits (Bits (..))
 import Data.Hashable (Hashable)
 import Data.Proxy (Proxy (..))
@@ -43,13 +43,11 @@ newtype MidiWord7 = MidiWord7 {unMidiWord7 :: Word7}
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
   deriving (Arb) via (ArbUnsigned Word7)
 
-instance ByteSized MidiWord7 where
-  byteSize _ = 1
-
 instance StaticByteSized MidiWord7 where
   staticByteSize _ = 1
 
 instance Binary MidiWord7 where
+  byteSize _ = 1
   get = do
     w <- get @Word8
     if w .&. 0x80 == 0
@@ -62,13 +60,11 @@ newtype MidiInt7 = MidiInt7 {unMidiInt7 :: Int7}
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
   deriving (Arb) via (ArbSigned Int7)
 
-instance ByteSized MidiInt7 where
-  byteSize _ = 1
-
 instance StaticByteSized MidiInt7 where
   staticByteSize _ = 1
 
 instance Binary MidiInt7 where
+  byteSize _ = 1
   get = do
     w <- get @Word8
     if w .&. 0x80 == 0
@@ -97,13 +93,11 @@ newtype MidiWord14 = MidiWord14 {unMidiWord14 :: Word14}
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
   deriving (Arb) via (ArbUnsigned Word14)
 
-instance ByteSized MidiWord14 where
-  byteSize _ = 2
-
 instance StaticByteSized MidiWord14 where
   staticByteSize _ = 2
 
 instance Binary MidiWord14 where
+  byteSize _ = 2
   get = fmap (MidiWord14 . contractW14 . unWord16BE) get
   put = put . Word16BE . expandW14 . unMidiWord14
 
@@ -112,13 +106,11 @@ newtype MidiInt14 = MidiInt14 {unMidiInt14 :: Int14}
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
   deriving (Arb) via (ArbSigned Int14)
 
-instance ByteSized MidiInt14 where
-  byteSize _ = 2
-
 instance StaticByteSized MidiInt14 where
   staticByteSize _ = 2
 
 instance Binary MidiInt14 where
+  byteSize _ = 2
   get = fmap (MidiInt14 . fromIntegral . contractW14 . unWord16BE) get
   put = put . Word16BE . expandW14 . fromIntegral . unMidiInt14
 
@@ -133,15 +125,13 @@ instance Bounded VarWord where
 instance Arb VarWord where
   arb = fmap VarWord (FG.integral (FR.between (0, 0x00FFFFFF)))
 
-instance ByteSized VarWord where
+instance Binary VarWord where
   byteSize (VarWord w) =
     if
         | w .&. 0xFFFFFF80 == 0 -> 1
         | w .&. 0xFFFFC000 == 0 -> 2
         | w .&. 0xFFE00000 == 0 -> 3
         | otherwise -> 4
-
-instance Binary VarWord where
   get = go 0 0
    where
     go !off !acc = do

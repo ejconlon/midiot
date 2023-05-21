@@ -5,12 +5,16 @@
 
 packages:
 - completed:
-    hackage: dahdit-0.3.0@sha256:2a03ddd73686a97452883b7de3910a117d2d29faede349d155e54d4538e7e911,3536
+    commit: a9c81856d0431956127de7b7a2bda37811cdae61
+    git: git@github.com:ejconlon/dahdit.git
+    name: dahdit
     pantry-tree:
-      sha256: 1b265e95f06d86c45bbb415029bdf092d121d3126a211c1c2584b6275857a610
-      size: 1240
+      sha256: acd43810f5ab3df75c8e6d0e78d6f54e1893bdba2f9ab2dbef0c288c2a8beb0c
+      size: 1749
+    version: 0.4.0
   original:
-    hackage: dahdit-0.3.0
+    commit: a9c81856d0431956127de7b7a2bda37811cdae61
+    git: git@github.com:ejconlon/dahdit.git
 - completed:
     commit: 45406c35878d0f3efc4cf29b4f3f2182391bc27c
     git: git@github.com:ejconlon/data-sword.git
