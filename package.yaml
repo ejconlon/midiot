@@ -26,6 +26,7 @@ dependencies:
 - data-sword >= 0.2.0.4 && < 0.3
 - falsify
 - newtype
+- text
 
 default-extensions:
 - BangPatterns

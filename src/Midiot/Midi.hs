@@ -1,7 +1,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingVia #-}
 
-module Midiot.Msg
+module Midiot.Midi
   ( Channel (..)
   , ChannelCount (..)
   , Note (..)
@@ -23,6 +23,7 @@ module Midiot.Msg
   , CommonStatus (..)
   , LiveStatus (..)
   , RecStatus (..)
+  , ShortStatus (..)
   , ChanStatusType (..)
   , ChanVoiceData (..)
   , ChanModeData (..)
@@ -35,6 +36,7 @@ module Midiot.Msg
   , MetaString (..)
   , MetaData (..)
   , RecMsg (..)
+  , ShortMsg (..)
   , msgNoteOn
   , msgNoteOff
   , Event (..)
@@ -403,6 +405,87 @@ instance Binary RecStatus where
       in  put @Word8 (d .|. x)
     RecStatusSysEx -> put @Word8 0xF0
     RecStatusMeta -> put @Word8 0xFF
+
+data ShortStatus
+  = ShortStatusChan !ChanStatus
+  | ShortStatusSysCommon !CommonStatus
+  | ShortStatusSysRt !RtStatus
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (ByteSized) via (ViaStaticByteSized ShortStatus)
+  deriving (Arb) via (ArbGeneric ShortStatus)
+
+instance StaticByteSized ShortStatus where
+  staticByteSize _ = 1
+
+instance HasChanStatus ShortStatus where
+  statusIsChan = \case
+    ShortStatusChan _ -> True
+    _ -> False
+
+  statusAsChan = \case
+    ShortStatusChan cs -> Just cs
+    _ -> Nothing
+
+  statusFromChan = ShortStatusChan
+
+instance Binary ShortStatus where
+  get = do
+    b <- get @Word8
+    let x = b .&. 0xF0
+    if
+        | x < 0x80 -> fail ("Short status byte with high bit clear: " ++ show b)
+        | x == 0xF0 ->
+            case b of
+              0xF1 -> pure (ShortStatusSysCommon CommonStatusTimeFrame)
+              0xF2 -> pure (ShortStatusSysCommon CommonStatusSongPointer)
+              0xF3 -> pure (ShortStatusSysCommon CommonStatusSongSelect)
+              0xF6 -> pure (ShortStatusSysCommon CommonStatusTuneRequest)
+              0xF8 -> pure (ShortStatusSysRt RtStatusTimingClock)
+              0xFA -> pure (ShortStatusSysRt RtStatusStart)
+              0xFB -> pure (ShortStatusSysRt RtStatusContinue)
+              0xFC -> pure (ShortStatusSysRt RtStatusStop)
+              0xFE -> pure (ShortStatusSysRt RtStatusActiveSensing)
+              0xFF -> pure (ShortStatusSysRt RtStatusSystemReset)
+              _ -> fail ("Unknown system status byte: " ++ show b)
+        | otherwise -> do
+            let c = Channel (fromIntegral (b .&. 0x0F))
+            pure $ ShortStatusChan $ ChanStatus c $ case x of
+              0x80 -> ChanStatusNoteOff
+              0x90 -> ChanStatusNoteOn
+              0xA0 -> ChanStatusKeyAftertouch
+              0xB0 -> ChanStatusControlChange
+              0xC0 -> ChanStatusProgramChange
+              0xD0 -> ChanStatusChanAftertouch
+              0xE0 -> ChanStatusPitchBend
+              _ -> error "impossible"
+  put = \case
+    ShortStatusChan (ChanStatus c cs) ->
+      let d = fromIntegral (unChannel c)
+          x = case cs of
+            ChanStatusNoteOff -> 0x80
+            ChanStatusNoteOn -> 0x90
+            ChanStatusKeyAftertouch -> 0xA0
+            ChanStatusControlChange -> 0xB0
+            ChanStatusProgramChange -> 0xC0
+            ChanStatusChanAftertouch -> 0xD0
+            ChanStatusPitchBend -> 0xE0
+      in  put @Word8 (d .|. x)
+    ShortStatusSysCommon cs ->
+      let x = case cs of
+            CommonStatusTimeFrame -> 0x01
+            CommonStatusSongPointer -> 0x02
+            CommonStatusSongSelect -> 0x03
+            CommonStatusTuneRequest -> 0x06
+      in  put @Word8 (0xF0 .|. x)
+    ShortStatusSysRt rs ->
+      let !x = case rs of
+            RtStatusTimingClock -> 0x00
+            RtStatusStart -> 0x02
+            RtStatusContinue -> 0x03
+            RtStatusStop -> 0x04
+            RtStatusActiveSensing -> 0x06
+            RtStatusSystemReset -> 0x7
+      in  put @Word8 (0xF8 .|. x)
 
 -- | A string prefixed by a single-byte length
 newtype MetaString = MetaString {unMetaString :: ShortByteString}
@@ -903,15 +986,18 @@ putLiveMsgData = \case
   LiveMsgSysCommon cd -> putCommonData cd
   LiveMsgSysRt _ -> pure ()
 
+commonMsgStatus :: CommonData -> CommonStatus
+commonMsgStatus = \case
+  CommonDataTimeFrame _ -> CommonStatusTimeFrame
+  CommonDataSongPointer _ -> CommonStatusSongPointer
+  CommonDataSongSelect _ -> CommonStatusSongSelect
+  CommonDataTuneRequest -> CommonStatusTuneRequest
+
 liveMsgStatus :: LiveMsg -> LiveStatus
 liveMsgStatus = \case
   LiveMsgChan chan cd -> LiveStatusChan (ChanStatus chan (chanDataType cd))
   LiveMsgSysEx _ -> LiveStatusSysEx
-  LiveMsgSysCommon cd -> LiveStatusSysCommon $ case cd of
-    CommonDataTimeFrame _ -> CommonStatusTimeFrame
-    CommonDataSongPointer _ -> CommonStatusSongPointer
-    CommonDataSongSelect _ -> CommonStatusSongSelect
-    CommonDataTuneRequest -> CommonStatusTuneRequest
+  LiveMsgSysCommon cd -> LiveStatusSysCommon (commonMsgStatus cd)
   LiveMsgSysRt rs -> LiveStatusSysRt rs
 
 msgNoteOn :: HasChanData s c => Channel -> Note -> Velocity -> c
@@ -959,6 +1045,53 @@ putRecMsgData = \case
   RecMsgChan _ cd -> putChanData cd
   RecMsgSysEx sed -> put sed
   RecMsgMeta md -> put md
+
+data ShortMsg
+  = ShortMsgChan !Channel !ChanData
+  | ShortMsgSysCommon !CommonData
+  | ShortMsgSysRt !RtStatus
+  deriving stock (Eq, Ord, Show, Generic)
+  deriving (Arb) via (ArbGeneric ShortMsg)
+
+instance HasChanData ShortStatus ShortMsg where
+  extractStatus = shortMsgStatus
+  embedChanData = ShortMsgChan
+
+instance ByteSized ShortMsg where
+  byteSize =
+    succ . \case
+      ShortMsgChan _ cd -> byteSize cd
+      ShortMsgSysCommon cd -> byteSize cd
+      ShortMsgSysRt _ -> 0
+
+instance Binary ShortMsg where
+  get = get @ShortStatus >>= getShortMsgWithStatus
+  put = void . putMsgRunning putShortMsgData Nothing
+
+-- private
+shortMsgStatus :: ShortMsg -> ShortStatus
+shortMsgStatus = \case
+  ShortMsgChan chan cd -> ShortStatusChan (ChanStatus chan (chanDataType cd))
+  ShortMsgSysCommon cd -> ShortStatusSysCommon $ case cd of
+    CommonDataTimeFrame _ -> CommonStatusTimeFrame
+    CommonDataSongPointer _ -> CommonStatusSongPointer
+    CommonDataSongSelect _ -> CommonStatusSongSelect
+    CommonDataTuneRequest -> CommonStatusTuneRequest
+  ShortMsgSysRt rs -> ShortStatusSysRt rs
+
+-- private
+getShortMsgWithStatus :: ShortStatus -> Get ShortMsg
+getShortMsgWithStatus = \case
+  ShortStatusChan cs@(ChanStatus chan _) -> fmap (ShortMsgChan chan) (getChanData cs)
+  ShortStatusSysCommon cs -> fmap ShortMsgSysCommon (getCommonData cs)
+  ShortStatusSysRt rs -> pure (ShortMsgSysRt rs)
+
+-- private
+putShortMsgData :: ShortMsg -> Put
+putShortMsgData = \case
+  ShortMsgChan _ cd -> putChanData cd
+  ShortMsgSysCommon cd -> putCommonData cd
+  ShortMsgSysRt _ -> pure ()
 
 -- | NOTE: Time delta is in number of ticks since previous message
 data Event = Event

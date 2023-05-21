@@ -8,7 +8,7 @@ import Data.Foldable (for_)
 import Data.Proxy (Proxy (..))
 import Midiot.Arb (Arb (..), arbSBS)
 import Midiot.Binary
-import Midiot.Msg
+import Midiot.Midi
 import Midiot.Parse (decodeEof, decodeFileEof, reDecodeEof)
 import System.Directory (listDirectory)
 import System.FilePath (takeExtension, (</>))
@@ -77,10 +77,12 @@ rtCases =
   , dynRTCase "SysExData" (arb @SysExData)
   , staRTCase "LiveStatus" (arb @LiveStatus)
   , staRTCase "RecStatus" (arb @RecStatus)
+  , staRTCase "ShortStatus" (arb @ShortStatus)
   , dynRTCase "MetaString" (fmap MetaString (arbSBS 0 255))
   , dynRTCase "MetaData" (arb @MetaData)
   , dynRTCase "LiveMsg" (arb @LiveMsg)
   , dynRTCase "RecMsg" (arb @RecMsg)
+  , dynRTCase "ShortMsg" (arb @ShortMsg)
   , dynRTCase "Track" (arb @Track)
   , dynRTCase "MidFile" (arb @MidFile)
   , dynRTCase "SysExDump" (arb @SysExDump)
