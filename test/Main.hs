@@ -1,7 +1,7 @@
 module Main (main) where
 
 import Control.Monad (unless, when)
-import Dahdit (Binary (..), ByteCount (..), GetError, StaticByteSized (..), encode)
+import Dahdit (Binary (..), ByteCount (..), GetError, StaticByteSized (..), decodeEnd, decodeFileEnd, encode)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Short as BSS
 import Data.Foldable (for_)
@@ -9,7 +9,6 @@ import Data.Proxy (Proxy (..))
 import Midiot.Arb (Arb (..), arbSBS)
 import Midiot.Binary
 import Midiot.Midi
-import Midiot.Parse (decodeEof, decodeFileEof, reDecodeEof)
 import System.Directory (listDirectory)
 import System.FilePath (takeExtension, (</>))
 import Test.Falsify.Generator (Gen)
@@ -18,6 +17,9 @@ import qualified Test.Falsify.Property as FP
 import Test.Tasty (TestTree, defaultMain, testGroup)
 import Test.Tasty.Falsify (Property, testProperty)
 import Test.Tasty.HUnit (testCase, (@?=))
+
+reDecodeEnd :: Binary a => a -> (Either GetError a, ByteCount)
+reDecodeEnd = decodeEnd . encode @_ @BSS.ShortByteString
 
 data RTCase where
   RTCase :: (Eq a, Show a, Binary a) => String -> Gen a -> Maybe ByteCount -> RTCase
@@ -41,7 +43,7 @@ runRTCase (RTCase name gen mayStaBc) = testProperty name $ do
   for_ mayStaBc (assertEq startDynBc)
   let encVal = encode startVal
       encBc = ByteCount (BSS.length encVal)
-  let (endRes, endConBc) = decodeEof encVal
+  let (endRes, endConBc) = decodeEnd encVal
   case endRes of
     Left err -> fail ("Decode of " ++ name ++ " failed: " ++ show err)
     Right endVal -> do
@@ -100,7 +102,7 @@ findFiles = do
   pure (xtraFiles ++ midiFiles)
 
 decodeFileAs :: Binary a => Proxy a -> FilePath -> IO (Either GetError a, ByteCount)
-decodeFileAs _ = decodeFileEof
+decodeFileAs _ = decodeFileEnd
 
 shouldFail :: FilePath -> Bool
 shouldFail fn =
@@ -120,7 +122,7 @@ runFileCase prox fn = do
       -- Rendered size should not be larger than input size
       let dynBc = byteSize fileVal
       unless (dynBc <= fileBc) (fail "Bad byte size")
-      let (endRes, endConBc) = reDecodeEof fileVal
+      let (endRes, endConBc) = reDecodeEnd fileVal
       case endRes of
         Left err -> fail ("Re-decode " ++ fn ++ " failed: " ++ show err)
         Right endVal -> do
