@@ -5,15 +5,15 @@
 
 packages:
 - completed:
-    commit: 068281b665f21c894d714b069ae61c89d15321a2
+    commit: 76d7d896860ba08d3b4fca43688c2c845ea9a05e
     git: git@github.com:ejconlon/dahdit.git
     name: dahdit
     pantry-tree:
-      sha256: 3d304d144a74b4ee5216087222e61ac10d1a6746f972541526ca8f6d6273f95c
+      sha256: b0e0c093f82f5779b9280c48cc9b616d11759d87453cc10e2d922ac3b964b4ae
       size: 1689
     version: 0.4.0
   original:
-    commit: 068281b665f21c894d714b069ae61c89d15321a2
+    commit: 76d7d896860ba08d3b4fca43688c2c845ea9a05e
     git: git@github.com:ejconlon/dahdit.git
 - completed:
     commit: 45406c35878d0f3efc4cf29b4f3f2182391bc27c
@@ -49,7 +49,7 @@ packages:
     hackage: falsify-0.1.1
 snapshots:
 - completed:
-    sha256: 126fa33ceb11f5e85ceb4e86d434756bd9a8439e2e5776d306a15fbc63b01e89
-    size: 650041
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/20.yaml
-  original: lts-20.20
+    sha256: dcf4fc28f12d805480ddbe8eb8c370e11db12f0461d0110a4240af27ac88d725
+    size: 650255
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/lts/20/22.yaml
+  original: lts-20.22

@@ -1,4 +1,4 @@
-resolver: lts-20.20
+resolver: lts-20.22
 
 ghc-options:
   "$everything": -haddock
@@ -10,7 +10,7 @@ extra-deps:
 # TODO Use Hackage version when released
 # - dahdit-0.4.0
 - git: git@github.com:ejconlon/dahdit.git
-  commit: 068281b665f21c894d714b069ae61c89d15321a2
+  commit: 76d7d896860ba08d3b4fca43688c2c845ea9a05e
 # TODO Use Hackage version when released
 # - data-sword-0.2.0.4
 - git: git@github.com:ejconlon/data-sword.git
