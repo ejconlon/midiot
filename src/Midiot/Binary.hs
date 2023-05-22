@@ -44,6 +44,7 @@ newtype MidiWord7 = MidiWord7 {unMidiWord7 :: Word7}
   deriving (Arb) via (ArbUnsigned Word7)
 
 instance StaticByteSized MidiWord7 where
+  type StaticSize MidiWord7 = 1
   staticByteSize _ = 1
 
 instance Binary MidiWord7 where
@@ -61,6 +62,7 @@ newtype MidiInt7 = MidiInt7 {unMidiInt7 :: Int7}
   deriving (Arb) via (ArbSigned Int7)
 
 instance StaticByteSized MidiInt7 where
+  type StaticSize MidiInt7 = 1
   staticByteSize _ = 1
 
 instance Binary MidiInt7 where
@@ -94,6 +96,7 @@ newtype MidiWord14 = MidiWord14 {unMidiWord14 :: Word14}
   deriving (Arb) via (ArbUnsigned Word14)
 
 instance StaticByteSized MidiWord14 where
+  type StaticSize MidiWord14 = 2
   staticByteSize _ = 2
 
 instance Binary MidiWord14 where
@@ -107,6 +110,7 @@ newtype MidiInt14 = MidiInt14 {unMidiInt14 :: Int14}
   deriving (Arb) via (ArbSigned Int14)
 
 instance StaticByteSized MidiInt14 where
+  type StaticSize MidiInt14 = 2
   staticByteSize _ = 2
 
 instance Binary MidiInt14 where

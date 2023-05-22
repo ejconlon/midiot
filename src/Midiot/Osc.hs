@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+
 module Midiot.Osc where
 
 import Control.Monad (replicateM_)
@@ -6,6 +8,7 @@ import Data.ByteString.Short (ShortByteString)
 import Data.Int (Int32, Int64)
 import Data.Sequence (Seq)
 import Data.Word (Word8)
+import GHC.TypeLits (KnownNat, type Mod, type (+), type (-))
 import Midiot.Midi (ShortMsg)
 import Midiot.Time (MonoTime)
 
@@ -98,7 +101,8 @@ putPad4 a = do
 
 newtype Pad4 a = Pad4 {unPad4 :: a}
 
-instance StaticByteSized a => StaticByteSized (Pad4 a) where
+instance (StaticByteSized a, KnownNat (StaticSize (Pad4 a))) => StaticByteSized (Pad4 a) where
+  type StaticSize (Pad4 a) = StaticSize a + (4 - Mod (StaticSize a) 4)
   staticByteSize = staticByteSizePad4
 
 instance Binary a => Binary (Pad4 a) where

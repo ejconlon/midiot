@@ -5,15 +5,15 @@
 
 packages:
 - completed:
-    commit: 02bbb032d1464fead54ce1b29e8b57cc15883aff
+    commit: ebd288ac28bc0aae3c9c3915384c9e2c497c0f17
     git: git@github.com:ejconlon/dahdit.git
     name: dahdit
     pantry-tree:
-      sha256: 4dc4b16178688f0d597d6ba0e1e2ba975bc5e1ecf871380e1b28a76c853e9978
-      size: 1749
+      sha256: b717d47e82a54d6b33d1ef02e486c7a9e6558876298a36444dae773651af7473
+      size: 1689
     version: 0.4.0
   original:
-    commit: 02bbb032d1464fead54ce1b29e8b57cc15883aff
+    commit: ebd288ac28bc0aae3c9c3915384c9e2c497c0f17
     git: git@github.com:ejconlon/dahdit.git
 - completed:
     commit: 45406c35878d0f3efc4cf29b4f3f2182391bc27c

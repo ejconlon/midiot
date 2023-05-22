@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Midiot.Midi
   ( Channel (..)
@@ -193,6 +194,7 @@ instance Arb QuarterTime where
   arb = QuarterTime <$> arb <*> genUnsigned
 
 instance StaticByteSized QuarterTime where
+  type StaticSize QuarterTime = 1
   staticByteSize _ = 1
 
 instance Binary QuarterTime where
@@ -269,6 +271,7 @@ data LiveStatus
   deriving (Arb) via (ArbGeneric LiveStatus)
 
 instance StaticByteSized LiveStatus where
+  type StaticSize LiveStatus = 1
   staticByteSize _ = 1
 
 instance HasChanStatus LiveStatus where
@@ -352,6 +355,7 @@ data RecStatus
   deriving (Arb) via (ArbGeneric RecStatus)
 
 instance StaticByteSized RecStatus where
+  type StaticSize RecStatus = 1
   staticByteSize _ = 1
 
 instance HasChanStatus RecStatus where
@@ -411,6 +415,7 @@ data ShortStatus
   deriving (Arb) via (ArbGeneric ShortStatus)
 
 instance StaticByteSized ShortStatus where
+  type StaticSize ShortStatus = 1
   staticByteSize _ = 1
 
 instance HasChanStatus ShortStatus where
@@ -668,6 +673,7 @@ data ChanModeData
   deriving (Arb) via (ArbGeneric ChanModeData)
 
 instance StaticByteSized ChanModeData where
+  type StaticSize ChanModeData = 2
   staticByteSize _ = 2
 
 -- private
@@ -1082,7 +1088,7 @@ data Event = Event
   deriving (Arb) via (ArbGeneric Event)
 
 -- private
-type TrackMagic = ExactBytes "MTrk"
+type TrackMagic = ExactBytes 4 "MTrk"
 
 newtype Track = Track {unTrack :: Seq Event}
   deriving stock (Show)
@@ -1154,7 +1160,7 @@ data MidFileType
   | MidFileTypeMultiSync
   | MidFileTypeMultiAsync
   deriving stock (Eq, Ord, Enum, Bounded, Show)
-  deriving (StaticByteSized, Binary) via (ViaBinaryRep MidFileType)
+  deriving (StaticByteSized, Binary) via (ViaBinaryRep Word16BE MidFileType)
   deriving (Arb) via (ArbEnum MidFileType)
 
 instance BinaryRep Word16BE MidFileType where
@@ -1169,7 +1175,7 @@ instance BinaryRep Word16BE MidFileType where
     MidFileTypeMultiAsync -> 2
 
 -- private
-type MidFileMagic = ExactBytes "MThd\NUL\NUL\NUL\ACK"
+type MidFileMagic = ExactBytes 8 "MThd\NUL\NUL\NUL\ACK"
 
 -- | NOTE: Ticks could also be SMTPE-related, but we don't support that here
 data MidFile = MidFile
