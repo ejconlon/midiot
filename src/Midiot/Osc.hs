@@ -5,22 +5,22 @@ module Midiot.Osc where
 
 import Control.Exception (Exception)
 import Control.Monad (replicateM_)
-import Dahdit (getExpect, getLookAhead, getRemainingSize, ByteCount (..), StaticByteSized (..), Binary (..), Get, Put, Int32BE (..), Int64BE (..), TermBytes8 (..), FloatBE (..), DoubleBE (..), putByteString)
-import Data.Proxy (Proxy (..))
+import Dahdit (Binary (..), ByteCount (..), DoubleBE (..), FloatBE (..), Get, Int32BE (..), Int64BE (..), Put, StaticByteSized (..), TermBytes8 (..), getExpect, getLookAhead, getRemainingSize, putByteString)
+import Data.ByteString.Internal (c2w, w2c)
 import Data.ByteString.Short (ShortByteString)
+import Data.Foldable (foldMap', for_, toList)
 import Data.Int (Int32, Int64)
+import Data.Monoid (Sum (..))
+import Data.Proxy (Proxy (..))
 import Data.Sequence (Seq (..))
+import qualified Data.Sequence as Seq
+import Data.Text.Short (ShortText)
+import qualified Data.Text.Short as TS
+import qualified Data.Text.Short.Unsafe as TSU
 import Data.Word (Word8)
 import GHC.TypeLits (KnownNat, type Mod, type (+), type (-))
 import Midiot.Midi (ShortMsg)
 import Midiot.Time (MonoTime)
-import qualified Data.Sequence as Seq
-import Data.ByteString.Internal (c2w, w2c)
-import Data.Foldable (for_, toList, foldMap')
-import Data.Text.Short (ShortText)
-import qualified Data.Text.Short as TS
-import qualified Data.Text.Short.Unsafe as TSU
-import Data.Monoid (Sum (..))
 
 newtype Pad4 a = Pad4 {unPad4 :: a}
 
@@ -179,7 +179,8 @@ sigSizer (Sig dts) = ByteCount (1 + Seq.length dts)
 
 instance Binary Sig where
   byteSize = byteSizePad4 sigSizer
-  get = getPad4 (getExpect "comma" get commaByte *> fmap Sig (go Empty)) where
+  get = getPad4 (getExpect "comma" get commaByte *> fmap Sig (go Empty))
+   where
     go !acc = do
       mnext <- getNextNonPad
       case mnext of
@@ -192,7 +193,7 @@ instance Binary Sig where
     put commaByte
     for_ dts (put . c2w . datumTypeRep)
 
-newtype Addr = Addr { unAddr :: Seq ShortText }
+newtype Addr = Addr {unAddr :: Seq ShortText}
   deriving stock (Show)
   deriving newtype (Eq, Ord)
 
@@ -203,9 +204,10 @@ addrSizer (Addr parts) =
 instance Binary Addr where
   byteSize = byteSizePad4 addrSizer
   get = getPad4 $ do
-    addr <- error "TODO"
-    getExpect "null" (get @Word8) 0
-    pure addr
+    s <- fmap (TSU.fromShortByteStringUnsafe . unTermBytes8) (get @TermBytes8)
+    case parseAddr s of
+      Left e -> fail ("Invalid address " ++ show s ++ " : " ++ show e)
+      Right a -> pure a
   put = putPad4 addrSizer $ \(Addr parts) -> do
     for_ parts $ \part -> do
       put slashByte
@@ -214,16 +216,16 @@ instance Binary Addr where
 
 isInvalidAddrPartChar :: Char -> Bool
 isInvalidAddrPartChar c =
-  c == ' ' ||
-    c == '#' ||
-    c == '*' ||
-    c == ',' ||
-    c == '/' ||
-    c == '?' ||
-    c == '[' ||
-    c == ']' ||
-    c == '{' ||
-    c == '}'
+  c == ' '
+    || c == '#'
+    || c == '*'
+    || c == ','
+    || c == '/'
+    || c == '?'
+    || c == '['
+    || c == ']'
+    || c == '{'
+    || c == '}'
 
 data AddrErr = AddrErrPartEmpty | AddrErrInvalidPartChar !Char | AddrErrExpectSlash !Char
   deriving stock (Eq, Ord, Show)
@@ -231,10 +233,11 @@ data AddrErr = AddrErrPartEmpty | AddrErrInvalidPartChar !Char | AddrErrExpectSl
 instance Exception AddrErr
 
 parseAddr :: ShortText -> Either AddrErr Addr
-parseAddr = goStart . TS.unpack where
+parseAddr = goStart . TS.unpack
+ where
   goStart = \case
     [] -> Right (Addr Empty)
-    c:cs ->
+    c : cs ->
       if c == '/'
         then goRest Empty Empty cs
         else Left (AddrErrExpectSlash c)
@@ -244,7 +247,7 @@ parseAddr = goStart . TS.unpack where
       if Seq.null pacc
         then Left AddrErrPartEmpty
         else Right (Addr (acc :|> pack pacc))
-    c:cs ->
+    c : cs ->
       if c == '/'
         then
           if Seq.null pacc
@@ -261,8 +264,8 @@ printAddr (Addr xs) =
     then TS.empty
     else TS.cons '/' (TS.intercalate (TS.singleton '/') (toList xs))
 
-data PatFrag =
-    PatFragText !ShortText
+data PatFrag
+  = PatFragText !ShortText
   | PatFragAnyMany
   | PatFragAnyOne
   | PatFragChoose !(Seq ShortText)
@@ -272,7 +275,7 @@ data PatFrag =
 type PatPart = Seq PatFrag
 
 -- Addr encoding: zero-terminated, aligned to 4-byte boundary
-newtype AddrPat = AddrPat { unAddrPat :: Seq PatPart }
+newtype AddrPat = AddrPat {unAddrPat :: Seq PatPart}
   deriving stock (Show)
   deriving newtype (Eq, Ord)
 
@@ -281,8 +284,8 @@ matchPart = error "TODO"
 
 matchAddr :: AddrPat -> Addr -> Bool
 matchAddr (AddrPat patParts) (Addr parts) =
-  (Seq.length patParts == Seq.length parts) &&
-    and (zipWith matchPart (toList patParts) (toList parts))
+  (Seq.length patParts == Seq.length parts)
+    && and (zipWith matchPart (toList patParts) (toList parts))
 
 -- Encoding: addr encoding, type descriptor (same 0-term + aligned),
 data Msg = Msg !AddrPat !(Seq Datum)
