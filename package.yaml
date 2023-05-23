@@ -89,6 +89,7 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - midiot
+    - dahdit-test
     - tasty
     - tasty-hunit
     - directory

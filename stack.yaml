@@ -10,7 +10,7 @@ extra-deps:
 # TODO Use Hackage version when released
 # - dahdit-0.4.0
 - git: git@github.com:ejconlon/dahdit.git
-  commit: dce68f584996e795a0dd69959b3b165e9b8beb78
+  commit: f02a4aad80fcd65e671453f4f83589568002a355
 # TODO Use Hackage version when released
 # - data-sword-0.2.0.4
 - git: git@github.com:ejconlon/data-sword.git
@@ -18,4 +18,7 @@ extra-deps:
 - primitive-0.8.0.0
 - RtMidi-0.6.1.0
 - falsify-0.1.1
+# TODO Use Hackage version when released
+- git: git@github.com:ejconlon/dahdit-test.git
+  commit: 1627e917a78d72ef4391bd8bedaa55f1c4808314
 
