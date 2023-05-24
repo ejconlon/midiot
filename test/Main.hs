@@ -1,8 +1,11 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main (main) where
 
 import Dahdit (Binary (..), ByteCount (..), GetError, StaticByteSized (..), decodeFileEnd)
 import qualified Data.ByteString.Char8 as BS
 import Data.Proxy (Proxy (..))
+import qualified Data.Sequence as Seq
 import Midiot.Arb (arbI, genSBS)
 import Midiot.Binary
   ( MidiInt14
@@ -16,7 +19,7 @@ import qualified Midiot.Osc as MO
 import qualified Midiot.OscAddr as MOA
 import System.Directory (listDirectory)
 import System.FilePath (takeExtension, (</>))
-import Test.Dahdit.Tasty (FileExpect (..), RT, fileRT, genRT, staticRT, testRT)
+import Test.Dahdit.Tasty (FileExpect (..), RT, UnitExpect (..), fileRT, genRT, staticRT, testRT, unitRT)
 import Test.Falsify.Generator (Gen)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 
@@ -96,15 +99,59 @@ mkFileRT fn = do
     ".syx" -> pure (fileRT @MM.SysExDump fn fn (shouldFail fn))
     _ -> fail ("Unhandled file format: " ++ ext)
 
+unitCases :: [RT]
+unitCases =
+  [ unitRT
+      "OSC msg"
+      (MO.Msg "/oscillator/4/frequency" (Seq.singleton (MO.DatumFloat 440.0)))
+      ( UnitExpectBytes
+          [ 0x2f
+          , 0x6f
+          , 0x73
+          , 0x63
+          , 0x69
+          , 0x6c
+          , 0x6c
+          , 0x61
+          , 0x74
+          , 0x6f
+          , 0x72
+          , 0x2f
+          , 0x34
+          , 0x2f
+          , 0x66
+          , 0x72
+          , 0x65
+          , 0x71
+          , 0x75
+          , 0x65
+          , 0x6e
+          , 0x63
+          , 0x79
+          , 0x00
+          , 0x2c
+          , 0x66
+          , 0x00
+          , 0x00
+          , 0x43
+          , 0xdc
+          , 0x00
+          , 0x00
+          ]
+      )
+  ]
+
 -- Increase number of examples with TASTY_FALSIFY_TESTS=1000 etc
 main :: IO ()
 main = do
   files <- findFiles
   fileCases <- traverse mkFileRT files
   let testFileCases = testGroup "File" (fmap testRT fileCases)
+      testUnitCases = testGroup "Unit" (fmap testRT unitCases)
   defaultMain $
     testGroup
       "Midiot"
       [ testGenCases
+      , testUnitCases
       , testFileCases
       ]
