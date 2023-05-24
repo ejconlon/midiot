@@ -4,7 +4,7 @@
 module Midiot.Osc where
 
 import Control.Monad (replicateM_)
-import Dahdit (Binary (..), ByteCount (..), DoubleBE (..), FloatBE (..), Get, Int32BE (..), Int64BE (..), Put, TermBytes8 (..), byteSizeFoldable, getExact, getExpect, getLookAhead, getRemainingSeq, getRemainingSize)
+import Dahdit (Binary (..), ByteCount (..), DoubleBE (..), FloatBE (..), Get, Int32BE (..), Int64BE (..), Put, StaticByteSized (..), TermBytes8 (..), Word64BE (..), byteSizeFoldable, byteSizeViaStatic, getExact, getExpect, getLookAhead, getRemainingSeq, getRemainingSize)
 import Data.ByteString.Internal (c2w, w2c)
 import Data.ByteString.Short (ShortByteString)
 import Data.Foldable (foldMap', for_)
@@ -18,6 +18,7 @@ import Data.Text.Short (ShortText)
 import qualified Data.Text.Short as TS
 import qualified Data.Text.Short.Unsafe as TSU
 import Data.Word (Word32, Word64, Word8)
+import GHC.Generics (Generic)
 import Midiot.Midi (ShortMsg)
 import Midiot.Time (NtpTime (..))
 
@@ -78,10 +79,28 @@ datumTypeUnRep = \case
   'm' -> Just DatumTypeMidi
   _ -> Nothing
 
-type Port = Word8
+newtype Port = Port {unPort :: Word8}
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, Binary, StaticByteSized)
 
 data PortMsg = PortMsg !Port !ShortMsg
-  deriving stock (Eq, Ord, Show)
+  deriving stock (Eq, Ord, Show, Generic)
+
+instance StaticByteSized PortMsg where
+  type StaticSize PortMsg = 4
+  staticByteSize _ = 4
+
+instance Binary PortMsg where
+  byteSize = byteSizeViaStatic
+  get = do
+    p <- get
+    m <- get
+    replicateM_ (3 - unByteCount (byteSize m)) (getExpect "port msg pad" (get @Word8) 0)
+    pure (PortMsg p m)
+  put (PortMsg p m) = do
+    put p
+    put m
+    replicateM_ (3 - unByteCount (byteSize m)) (put @Word8 0)
 
 -- In OSC Time is NTP64 https://atolab.github.io/uhlc-rs/uhlc/struct.NTP64.html
 -- In SC it is seconds since start
@@ -116,8 +135,8 @@ datumGetter = \case
   DatumTypeDouble -> DatumDouble . unDoubleBE <$> get
   DatumTypeString -> DatumString . TSU.fromShortByteStringUnsafe . unTermBytes8 <$> get
   DatumTypeBlob -> DatumBlob . unTermBytes8 <$> get
-  DatumTypeTime -> error "TODO"
-  DatumTypeMidi -> error "TODO"
+  DatumTypeTime -> DatumTime . NtpTime . unWord64BE <$> get
+  DatumTypeMidi -> DatumMidi <$> get
 
 datumPutter :: Datum -> Put
 datumPutter = \case
@@ -127,8 +146,8 @@ datumPutter = \case
   DatumDouble x -> put (DoubleBE x)
   DatumString x -> put (TermBytes8 (TS.toShortByteString x))
   DatumBlob x -> put (TermBytes8 x)
-  DatumTime _ -> error "TODO"
-  DatumMidi _ -> error "TODO"
+  DatumTime x -> put (Word64BE (unNtpTime x))
+  DatumMidi x -> put x
 
 datumType :: Datum -> DatumType
 datumType = \case
