@@ -14,13 +14,14 @@ import Data.Monoid (Sum (..))
 import Data.Proxy (Proxy (..))
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
+import Data.String (IsString (..))
 import Data.Text.Short (ShortText)
 import qualified Data.Text.Short as TS
 import qualified Data.Text.Short.Unsafe as TSU
 import Data.Word (Word8)
 import GHC.TypeLits (KnownNat, type Mod, type (+), type (-))
 import Midiot.Midi (ShortMsg)
-import Midiot.Time (MonoTime)
+import Midiot.Time (NtpTime (..))
 
 newtype Pad4 a = Pad4 {unPad4 :: a}
 
@@ -105,7 +106,7 @@ data Datum
   | DatumDouble !Double
   | DatumString !ShortText
   | DatumBlob !ShortByteString
-  | DatumTime !MonoTime
+  | DatumTime !NtpTime
   | DatumMidi !PortMsg
   deriving stock (Eq, Ord, Show)
 
@@ -197,6 +198,13 @@ newtype Addr = Addr {unAddr :: Seq ShortText}
   deriving stock (Show)
   deriving newtype (Eq, Ord)
 
+instance IsString Addr where
+  fromString s =
+    let t = TS.pack s
+    in  case parseAddr t of
+          Left e -> error ("Invalid address " ++ show s ++ " : " ++ show e)
+          Right a -> a
+
 addrSizer :: Addr -> ByteCount
 addrSizer (Addr parts) =
   ByteCount (Seq.length parts + getSum (foldMap' (Sum . TS.length) parts))
@@ -279,6 +287,36 @@ newtype AddrPat = AddrPat {unAddrPat :: Seq PatPart}
   deriving stock (Show)
   deriving newtype (Eq, Ord)
 
+instance IsString AddrPat where
+  fromString s =
+    let t = TS.pack s
+    in  case parseAddrPat t of
+          Left e -> error ("Invalid address pattern " ++ show s ++ " : " ++ show e)
+          Right a -> a
+
+addrPatSizer :: AddrPat -> ByteCount
+addrPatSizer (AddrPat _patParts) = undefined
+
+instance Binary AddrPat where
+  byteSize = byteSizePad4 addrPatSizer
+  get = getPad4 $ do
+    s <- fmap (TSU.fromShortByteStringUnsafe . unTermBytes8) (get @TermBytes8)
+    case parseAddrPat s of
+      Left e -> fail ("Invalid address pattern " ++ show s ++ " : " ++ show e)
+      Right a -> pure a
+  put = putPad4 addrPatSizer $ \(AddrPat _patParts) -> error "TODO"
+
+data AddrPatErr = AddrPadErr
+  deriving stock (Eq, Ord, Show)
+
+instance Exception AddrPatErr
+
+parseAddrPat :: ShortText -> Either AddrPatErr AddrPat
+parseAddrPat = error "TODO"
+
+printAddrPat :: AddrPat -> ShortText
+printAddrPat = error "TODO"
+
 matchPart :: PatPart -> ShortText -> Bool
 matchPart = error "TODO"
 
@@ -291,10 +329,28 @@ matchAddr (AddrPat patParts) (Addr parts) =
 data Msg = Msg !AddrPat !(Seq Datum)
   deriving stock (Eq, Ord, Show)
 
-data Bundle = Bundle !MonoTime !(Seq Msg)
+instance Binary Msg where
+  byteSize = error "TODO"
+  get = error "TODO"
+  put = error "TODO"
+
+data Bundle = Bundle !NtpTime !(Seq Msg)
   deriving stock (Eq, Ord, Show)
+
+instance Binary Bundle where
+  byteSize = error "TODO"
+  get = error "TODO"
+  put = error "TODO"
 
 data Packet
   = PacketMsg !Msg
   | PacketBundle !Bundle
   deriving stock (Eq, Ord, Show)
+
+instance Binary Packet where
+  byteSize = error "TODO"
+  get = error "TODO"
+  put = error "TODO"
+
+immediately :: NtpTime
+immediately = NtpTime 1
