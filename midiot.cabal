@@ -68,6 +68,7 @@ library
     , bytestring
     , containers
     , dahdit ==0.4.*
+    , dahdit-test
     , data-sword >=0.2.0.4 && <0.3
     , deepseq
     , falsify
@@ -117,6 +118,7 @@ executable midiot-exe
     , bytestring
     , containers
     , dahdit ==0.4.*
+    , dahdit-test
     , data-sword >=0.2.0.4 && <0.3
     , deepseq
     , falsify

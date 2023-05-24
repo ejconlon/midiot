@@ -20,7 +20,7 @@ import Data.ShortWord (Int7, Word7)
 import Data.ShortWord.TH (mkShortWord)
 import Data.Word (Word16, Word32, Word8)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
-import Midiot.Arb (Arb (..), ArbSigned (..), ArbUnsigned (..))
+import Midiot.Arb (Arb (..), ArbSigned (..), ArbUnsigned (..), I)
 import qualified Test.Falsify.Generator as FG
 import qualified Test.Falsify.Range as FR
 
@@ -41,7 +41,7 @@ instance
 newtype MidiWord7 = MidiWord7 {unMidiWord7 :: Word7}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
-  deriving (Arb) via (ArbUnsigned Word7)
+  deriving (Arb I) via (ArbUnsigned Word7)
 
 instance StaticByteSized MidiWord7 where
   type StaticSize MidiWord7 = 1
@@ -59,7 +59,7 @@ instance Binary MidiWord7 where
 newtype MidiInt7 = MidiInt7 {unMidiInt7 :: Int7}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
-  deriving (Arb) via (ArbSigned Int7)
+  deriving (Arb I) via (ArbSigned Int7)
 
 instance StaticByteSized MidiInt7 where
   type StaticSize MidiInt7 = 1
@@ -93,7 +93,7 @@ contractW14 v =
 newtype MidiWord14 = MidiWord14 {unMidiWord14 :: Word14}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
-  deriving (Arb) via (ArbUnsigned Word14)
+  deriving (Arb I) via (ArbUnsigned Word14)
 
 instance StaticByteSized MidiWord14 where
   type StaticSize MidiWord14 = 2
@@ -107,7 +107,7 @@ instance Binary MidiWord14 where
 newtype MidiInt14 = MidiInt14 {unMidiInt14 :: Int14}
   deriving stock (Show)
   deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
-  deriving (Arb) via (ArbSigned Int14)
+  deriving (Arb I) via (ArbSigned Int14)
 
 instance StaticByteSized MidiInt14 where
   type StaticSize MidiInt14 = 2
@@ -126,8 +126,8 @@ instance Bounded VarWord where
   minBound = VarWord 0
   maxBound = VarWord 0x00FFFFFF
 
-instance Arb VarWord where
-  arb = fmap VarWord (FG.integral (FR.between (0, 0x00FFFFFF)))
+instance Arb I VarWord where
+  arb _ _ = fmap VarWord (FG.integral (FR.between (0, 0x00FFFFFF)))
 
 instance Binary VarWord where
   byteSize (VarWord w) =
