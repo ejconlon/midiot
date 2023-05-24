@@ -31,6 +31,7 @@ library
       Midiot.Midi
       Midiot.Osc
       Midiot.OscAddr
+      Midiot.Pad
       Midiot.Time
   other-modules:
       Paths_midiot

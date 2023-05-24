@@ -1,4 +1,7 @@
-module Midiot.OscAddr where
+module Midiot.OscAddr
+  ( RawAddrPat (..)
+  )
+where
 
 import Control.Exception (Exception)
 import Dahdit (Binary (..), ByteCount (..), TermBytes8 (..), putByteString)
@@ -12,7 +15,8 @@ import Data.Text.Short (ShortText)
 import qualified Data.Text.Short as TS
 import qualified Data.Text.Short.Unsafe as TSU
 import Data.Word (Word8)
-import Midiot.Osc (byteSizePad4, getPad4, putPad4)
+import Midiot.Arb (Arb (..), I, genSBS)
+import Midiot.Pad (byteSizePad16, getPad16, putPad16)
 
 slashByte :: Word8
 slashByte = c2w '/'
@@ -33,13 +37,13 @@ addrSizer (Addr parts) =
   ByteCount (Seq.length parts + getSum (foldMap' (Sum . TS.length) parts))
 
 instance Binary Addr where
-  byteSize = byteSizePad4 addrSizer
-  get = getPad4 $ do
+  byteSize = byteSizePad16 addrSizer
+  get = getPad16 $ do
     s <- fmap (TSU.fromShortByteStringUnsafe . unTermBytes8) (get @TermBytes8)
     case parseAddr s of
       Left e -> fail ("Invalid address " ++ show s ++ " : " ++ show e)
       Right a -> pure a
-  put = putPad4 addrSizer $ \(Addr parts) -> do
+  put = putPad16 addrSizer $ \(Addr parts) -> do
     for_ parts $ \part -> do
       put slashByte
       putByteString (TS.toShortByteString part)
@@ -132,13 +136,13 @@ addrPatSizer :: AddrPat -> ByteCount
 addrPatSizer (AddrPat _patParts) = undefined
 
 instance Binary AddrPat where
-  byteSize = byteSizePad4 addrPatSizer
-  get = getPad4 $ do
+  byteSize = byteSizePad16 addrPatSizer
+  get = getPad16 $ do
     s <- fmap (TSU.fromShortByteStringUnsafe . unTermBytes8) (get @TermBytes8)
     case parseAddrPat s of
       Left e -> fail ("Invalid address pattern " ++ show s ++ " : " ++ show e)
       Right a -> pure a
-  put = putPad4 addrPatSizer $ \(AddrPat _patParts) -> error "TODO"
+  put = putPad16 addrPatSizer $ \(AddrPat _patParts) -> error "TODO"
 
 data AddrPatErr = AddrPadErr
   deriving stock (Eq, Ord, Show)
@@ -158,3 +162,21 @@ matchAddr :: AddrPat -> Addr -> Bool
 matchAddr (AddrPat patParts) (Addr parts) =
   (Seq.length patParts == Seq.length parts)
     && and (zipWith matchPart (toList patParts) (toList parts))
+
+newtype RawAddrPat = RawAddrPat {unRawAddrPat :: ShortText}
+  deriving stock (Show)
+  deriving newtype (Eq, Ord, IsString)
+
+-- TODO generate somethign syntactically valid
+instance Arb I RawAddrPat where
+  arb _ _ = fmap (RawAddrPat . TSU.fromShortByteStringUnsafe) (genSBS 0 3)
+
+rawAddrPatSizer :: RawAddrPat -> ByteCount
+rawAddrPatSizer = ByteCount . succ . TS.length . unRawAddrPat
+
+instance Binary RawAddrPat where
+  byteSize = byteSizePad16 rawAddrPatSizer
+  get =
+    getPad16 $
+      fmap (RawAddrPat . TSU.fromShortByteStringUnsafe . unTermBytes8) (get @TermBytes8)
+  put = putPad16 rawAddrPatSizer (put . TermBytes8 . TS.toShortByteString . unRawAddrPat)

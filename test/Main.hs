@@ -11,36 +11,8 @@ import Midiot.Binary
   , MidiWord7
   , VarWord
   )
-import Midiot.Midi
-  ( Channel
-  , ControlNum
-  , ControlVal
-  , LiveMsg
-  , LiveStatus
-  , LongManf
-  , Manf
-  , ManfSysEx
-  , MetaData
-  , MetaString (MetaString)
-  , MidFile
-  , Note
-  , PitchBend
-  , Position
-  , Pressure
-  , ProgramNum
-  , QuarterTime
-  , RecMsg
-  , RecStatus
-  , ShortManf
-  , ShortMsg
-  , ShortStatus
-  , Song
-  , SysExData
-  , SysExDump
-  , Track
-  , UnivSysEx
-  , Velocity
-  )
+import qualified Midiot.Midi as MM
+-- import qualified Midiot.Osc as MO
 import System.Directory (listDirectory)
 import System.FilePath (takeExtension, (</>))
 import Test.Dahdit.Tasty (FileExpect (..), RT, fileRT, genRT, staticRT, testRT)
@@ -60,34 +32,34 @@ genCases =
   , staRT "MidiWord14" (arbI @MidiWord14)
   , staRT "MidiInt14" (arbI @MidiInt14)
   , genRT "VarWord" (arbI @VarWord)
-  , staRT "Channel" (arbI @Channel)
-  , staRT "Note" (arbI @Note)
-  , staRT "Velocity" (arbI @Velocity)
-  , staRT "ControlNum" (arbI @ControlNum)
-  , staRT "ControlVal" (arbI @ControlVal)
-  , staRT "Pressure" (arbI @Pressure)
-  , staRT "ProgramNum" (arbI @ProgramNum)
-  , staRT "PitchBend" (arbI @PitchBend)
-  , staRT "Song" (arbI @Song)
-  , staRT "Position" (arbI @Position)
-  , staRT "ShortManf" (arbI @ShortManf)
-  , staRT "LongManf" (arbI @LongManf)
-  , genRT "Manf" (arbI @Manf)
-  , staRT "QuarterTime" (arbI @QuarterTime)
-  , genRT "UnivSysEx" (arbI @UnivSysEx)
-  , genRT "ManfSysEx" (arbI @ManfSysEx)
-  , genRT "SysExData" (arbI @SysExData)
-  , staRT "LiveStatus" (arbI @LiveStatus)
-  , staRT "RecStatus" (arbI @RecStatus)
-  , staRT "ShortStatus" (arbI @ShortStatus)
-  , genRT "MetaString" (fmap MetaString (genSBS 0 255))
-  , genRT "MetaData" (arbI @MetaData)
-  , genRT "LiveMsg" (arbI @LiveMsg)
-  , genRT "RecMsg" (arbI @RecMsg)
-  , genRT "ShortMsg" (arbI @ShortMsg)
-  , genRT "Track" (arbI @Track)
-  , genRT "MidFile" (arbI @MidFile)
-  , genRT "SysExDump" (arbI @SysExDump)
+  , staRT "Channel" (arbI @MM.Channel)
+  , staRT "Note" (arbI @MM.Note)
+  , staRT "Velocity" (arbI @MM.Velocity)
+  , staRT "ControlNum" (arbI @MM.ControlNum)
+  , staRT "ControlVal" (arbI @MM.ControlVal)
+  , staRT "Pressure" (arbI @MM.Pressure)
+  , staRT "ProgramNum" (arbI @MM.ProgramNum)
+  , staRT "PitchBend" (arbI @MM.PitchBend)
+  , staRT "Song" (arbI @MM.Song)
+  , staRT "Position" (arbI @MM.Position)
+  , staRT "ShortManf" (arbI @MM.ShortManf)
+  , staRT "LongManf" (arbI @MM.LongManf)
+  , genRT "Manf" (arbI @MM.Manf)
+  , staRT "QuarterTime" (arbI @MM.QuarterTime)
+  , genRT "UnivSysEx" (arbI @MM.UnivSysEx)
+  , genRT "ManfSysEx" (arbI @MM.ManfSysEx)
+  , genRT "SysExData" (arbI @MM.SysExData)
+  , staRT "LiveStatus" (arbI @MM.LiveStatus)
+  , staRT "RecStatus" (arbI @MM.RecStatus)
+  , staRT "ShortStatus" (arbI @MM.ShortStatus)
+  , genRT "MetaString" (fmap MM.MetaString (genSBS 0 255))
+  , genRT "MetaData" (arbI @MM.MetaData)
+  , genRT "LiveMsg" (arbI @MM.LiveMsg)
+  , genRT "RecMsg" (arbI @MM.RecMsg)
+  , genRT "ShortMsg" (arbI @MM.ShortMsg)
+  , genRT "Track" (arbI @MM.Track)
+  , genRT "MidFile" (arbI @MM.MidFile)
+  , genRT "SysExDump" (arbI @MM.SysExDump)
   ]
 
 testGenCases :: TestTree
@@ -114,8 +86,8 @@ mkFileRT :: FilePath -> IO RT
 mkFileRT fn = do
   let ext = takeExtension fn
   case ext of
-    ".mid" -> pure (fileRT @MidFile fn fn (shouldFail fn))
-    ".syx" -> pure (fileRT @SysExDump fn fn (shouldFail fn))
+    ".mid" -> pure (fileRT @MM.MidFile fn fn (shouldFail fn))
+    ".syx" -> pure (fileRT @MM.SysExDump fn fn (shouldFail fn))
     _ -> fail ("Unhandled file format: " ++ ext)
 
 -- Increase number of examples with TASTY_FALSIFY_TESTS=1000 etc
