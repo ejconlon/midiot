@@ -1,36 +1,38 @@
 module Midiot.Pad
-  ( pad16
-  , staticByteSizePad16
-  , byteSizePad16
-  , getPad16
-  , putPad16
+  ( pad32
+  , staticByteSizePad32
+  , byteSizePad32
+  , getPad32
+  , putPad32
   )
 where
 
-import Control.Monad (replicateM_)
+import Control.Monad (replicateM_, unless)
 import Dahdit (Binary (..), ByteCount (..), Get, Put, getExpect, getRemainingSize)
 import Data.Proxy (Proxy)
 import Data.Word (Word8)
 
-pad16 :: ByteCount -> ByteCount
-pad16 x = x + (4 - rem x 4)
+pad32 :: ByteCount -> ByteCount
+pad32 x = let y = rem x 4 in x + if y == 0 then 0 else 4 - y
 
-staticByteSizePad16 :: (Proxy a -> ByteCount) -> Proxy a -> ByteCount
-staticByteSizePad16 staticSizer p = pad16 (staticSizer p)
+staticByteSizePad32 :: (Proxy a -> ByteCount) -> Proxy a -> ByteCount
+staticByteSizePad32 staticSizer p = pad32 (staticSizer p)
 
-byteSizePad16 :: (a -> ByteCount) -> a -> ByteCount
-byteSizePad16 sizer a = pad16 (sizer a)
+byteSizePad32 :: (a -> ByteCount) -> a -> ByteCount
+byteSizePad32 sizer a = pad32 (sizer a)
 
-getPad16 :: Get a -> Get a
-getPad16 getter = do
+getPad32 :: Get a -> Get a
+getPad32 getter = do
   x <- getRemainingSize
   a <- getter
   y <- getRemainingSize
-  replicateM_ (rem (unByteCount (y - x)) 4) (getExpect "pad" (get @Word8) 0)
+  let z = rem (unByteCount (x - y)) 4
+  unless (z == 0) (replicateM_ (4 - z) (getExpect "pad" (get @Word8) 0))
   pure a
 
-putPad16 :: (a -> ByteCount) -> (a -> Put) -> a -> Put
-putPad16 sizer putter a = do
+putPad32 :: (a -> ByteCount) -> (a -> Put) -> a -> Put
+putPad32 sizer putter a = do
   let x = sizer a
   putter a
-  replicateM_ (4 - rem (unByteCount x) 4) (put @Word8 0)
+  let y = rem (unByteCount x) 4
+  unless (y == 0) (replicateM_ (4 - y) (put @Word8 0))

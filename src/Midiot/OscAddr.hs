@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Midiot.OscAddr
   ( RawAddrPat (..)
   )
@@ -15,8 +17,9 @@ import Data.Text.Short (ShortText)
 import qualified Data.Text.Short as TS
 import qualified Data.Text.Short.Unsafe as TSU
 import Data.Word (Word8)
-import Midiot.Arb (Arb (..), I, genSBS)
-import Midiot.Pad (byteSizePad16, getPad16, putPad16)
+import Midiot.Arb (Arb (..), I, genList)
+import Midiot.Pad (byteSizePad32, getPad32, putPad32)
+import qualified Test.Falsify.Generator as FG
 
 slashByte :: Word8
 slashByte = c2w '/'
@@ -37,13 +40,13 @@ addrSizer (Addr parts) =
   ByteCount (Seq.length parts + getSum (foldMap' (Sum . TS.length) parts))
 
 instance Binary Addr where
-  byteSize = byteSizePad16 addrSizer
-  get = getPad16 $ do
+  byteSize = byteSizePad32 addrSizer
+  get = getPad32 $ do
     s <- fmap (TSU.fromShortByteStringUnsafe . unTermBytes8) (get @TermBytes8)
     case parseAddr s of
       Left e -> fail ("Invalid address " ++ show s ++ " : " ++ show e)
       Right a -> pure a
-  put = putPad16 addrSizer $ \(Addr parts) -> do
+  put = putPad32 addrSizer $ \(Addr parts) -> do
     for_ parts $ \part -> do
       put slashByte
       putByteString (TS.toShortByteString part)
@@ -136,13 +139,13 @@ addrPatSizer :: AddrPat -> ByteCount
 addrPatSizer (AddrPat _patParts) = undefined
 
 instance Binary AddrPat where
-  byteSize = byteSizePad16 addrPatSizer
-  get = getPad16 $ do
+  byteSize = byteSizePad32 addrPatSizer
+  get = getPad32 $ do
     s <- fmap (TSU.fromShortByteStringUnsafe . unTermBytes8) (get @TermBytes8)
     case parseAddrPat s of
       Left e -> fail ("Invalid address pattern " ++ show s ++ " : " ++ show e)
       Right a -> pure a
-  put = putPad16 addrPatSizer $ \(AddrPat _patParts) -> error "TODO"
+  put = putPad32 addrPatSizer $ \(AddrPat _patParts) -> error "TODO"
 
 data AddrPatErr = AddrPadErr
   deriving stock (Eq, Ord, Show)
@@ -167,16 +170,18 @@ newtype RawAddrPat = RawAddrPat {unRawAddrPat :: ShortText}
   deriving stock (Show)
   deriving newtype (Eq, Ord, IsString)
 
--- TODO generate somethign syntactically valid
+-- TODO generate addr pat and serialize
 instance Arb I RawAddrPat where
-  arb _ _ = fmap (RawAddrPat . TSU.fromShortByteStringUnsafe) (genSBS 0 3)
+  arb _ _ = RawAddrPat . ("/" <>) . TS.intercalate "/" <$> genList 1 3 g
+   where
+    g = FG.choose (pure "x") (pure "y")
 
 rawAddrPatSizer :: RawAddrPat -> ByteCount
 rawAddrPatSizer = ByteCount . succ . TS.length . unRawAddrPat
 
 instance Binary RawAddrPat where
-  byteSize = byteSizePad16 rawAddrPatSizer
+  byteSize = byteSizePad32 rawAddrPatSizer
   get =
-    getPad16 $
+    getPad32 $
       fmap (RawAddrPat . TSU.fromShortByteStringUnsafe . unTermBytes8) (get @TermBytes8)
-  put = putPad16 rawAddrPatSizer (put . TermBytes8 . TS.toShortByteString . unRawAddrPat)
+  put = putPad32 rawAddrPatSizer (put . TermBytes8 . TS.toShortByteString . unRawAddrPat)

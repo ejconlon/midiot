@@ -12,7 +12,8 @@ import Midiot.Binary
   , VarWord
   )
 import qualified Midiot.Midi as MM
--- import qualified Midiot.Osc as MO
+import qualified Midiot.Osc as MO
+import qualified Midiot.OscAddr as MOA
 import System.Directory (listDirectory)
 import System.FilePath (takeExtension, (</>))
 import Test.Dahdit.Tasty (FileExpect (..), RT, fileRT, genRT, staticRT, testRT)
@@ -60,6 +61,8 @@ genCases =
   , genRT "Track" (arbI @MM.Track)
   , genRT "MidFile" (arbI @MM.MidFile)
   , genRT "SysExDump" (arbI @MM.SysExDump)
+  , genRT "RawAddrPat" (arbI @MOA.RawAddrPat)
+  , genRT "PortMsg" (arbI @MO.PortMsg)
   ]
 
 testGenCases :: TestTree

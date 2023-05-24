@@ -21,7 +21,7 @@ import GHC.Generics (Generic)
 import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..), I, genFractional, genSBS, genSeq, genSigned, genUnsigned)
 import Midiot.Midi (ShortMsg)
 import Midiot.OscAddr (RawAddrPat (..))
-import Midiot.Pad (byteSizePad16, getPad16, pad16, putPad16)
+import Midiot.Pad (byteSizePad32, getPad32, pad32, putPad32)
 import Midiot.Time (NtpTime (..))
 import qualified Test.Falsify.Generator as FG
 
@@ -184,8 +184,8 @@ sigSizer :: Sig -> ByteCount
 sigSizer (Sig dts) = ByteCount (1 + Seq.length dts)
 
 instance Binary Sig where
-  byteSize = byteSizePad16 sigSizer
-  get = getPad16 (getExpect "comma" get commaByte *> fmap Sig (go Empty))
+  byteSize = byteSizePad32 sigSizer
+  get = getPad32 (getExpect "comma" get commaByte *> fmap Sig (go Empty))
    where
     go !acc = do
       mnext <- getNextNonPad
@@ -195,7 +195,7 @@ instance Binary Sig where
             Nothing -> fail ("Unknown data type rep: " ++ show w)
             Just dt -> go (acc :|> dt)
         Nothing -> pure acc
-  put = putPad16 sigSizer $ \(Sig dts) -> do
+  put = putPad32 sigSizer $ \(Sig dts) -> do
     put commaByte
     for_ dts (put . c2w . datumTypeRep)
 
@@ -208,8 +208,8 @@ instance Arb I Msg where
 instance Binary Msg where
   byteSize (Msg r ds) =
     byteSize r
-      + pad16 (ByteCount (1 + Seq.length ds))
-      + getSum (foldMap' (Sum . pad16 . datumSizer) ds)
+      + pad32 (ByteCount (1 + Seq.length ds))
+      + getSum (foldMap' (Sum . pad32 . datumSizer) ds)
   get = do
     r <- get @RawAddrPat
     s <- get @Sig
