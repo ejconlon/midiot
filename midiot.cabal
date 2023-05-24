@@ -30,6 +30,7 @@ library
       Midiot.Iface
       Midiot.Midi
       Midiot.Osc
+      Midiot.OscAddr
       Midiot.Time
   other-modules:
       Paths_midiot
