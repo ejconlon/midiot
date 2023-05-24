@@ -4,9 +4,10 @@
 module Midiot.Osc where
 
 import Control.Monad (replicateM_)
-import Dahdit (Binary (..), ByteCount (..), DoubleBE (..), FloatBE (..), Get, Int32BE (..), Int64BE (..), Put, StaticByteSized (..), TermBytes8 (..), Word64BE (..), byteSizeFoldable, byteSizeViaStatic, getExact, getExpect, getLookAhead, getRemainingSeq, getRemainingSize)
+import Dahdit (Binary (..), ByteCount (..), DoubleBE (..), FloatBE (..), Get, Int32BE (..), Int64BE (..), Put, StaticByteSized (..), TermBytes8 (..), Word32BE, Word64BE (..), byteSizeFoldable, byteSizeViaStatic, getByteString, getExact, getExpect, getLookAhead, getRemainingSeq, getRemainingSize, putByteString)
 import Data.ByteString.Internal (c2w, w2c)
 import Data.ByteString.Short (ShortByteString)
+import qualified Data.ByteString.Short as BSS
 import Data.Foldable (foldMap', for_)
 import Data.Int (Int32, Int64)
 import Data.Monoid (Sum (..))
@@ -18,7 +19,7 @@ import qualified Data.Text.Short as TS
 import qualified Data.Text.Short.Unsafe as TSU
 import Data.Word (Word32, Word64, Word8)
 import GHC.Generics (Generic)
-import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..), I, genFractional, genSBS, genSeq, genSigned, genUnsigned)
+import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..), I, genFractional, genList, genSBS, genSeq, genSigned, genUnsigned)
 import Midiot.Midi (ShortMsg)
 import Midiot.OscAddr (RawAddrPat (..))
 import Midiot.Pad (byteSizePad32, getPad32, pad32, putPad32)
@@ -84,9 +85,6 @@ instance Binary PortMsg where
     put m
     replicateM_ (3 - unByteCount (byteSize m)) (put @Word8 0)
 
--- In OSC Time is NTP64 https://atolab.github.io/uhlc-rs/uhlc/struct.NTP64.html
--- In SC it is seconds since start
-
 data Datum
   = DatumInt32 !Int32
   | DatumInt64 !Int64
@@ -106,7 +104,7 @@ instance Arb I Datum where
       , DatumInt64 <$> genSigned
       , DatumFloat <$> genFractional
       , DatumDouble <$> genFractional
-      , DatumString . TSU.fromShortByteStringUnsafe <$> genSBS 0 3
+      , DatumString . TS.pack <$> genList 0 3 (FG.choose (pure 'x') (pure 'y'))
       , DatumBlob <$> genSBS 0 3
       , DatumTime . NtpTime <$> genUnsigned
       , DatumMidi <$> arb p Proxy
@@ -119,8 +117,8 @@ datumSizer = \case
   DatumFloat _ -> 4
   DatumDouble _ -> 8
   DatumString x -> byteSize (TermBytes8 (TS.toShortByteString x))
-  DatumBlob x -> byteSize (TermBytes8 x)
-  DatumTime _ -> 4
+  DatumBlob x -> ByteCount (4 + BSS.length x)
+  DatumTime _ -> 8
   DatumMidi _ -> 4
 
 datumGetter :: DatumType -> Get Datum
@@ -129,19 +127,23 @@ datumGetter = \case
   DatumTypeInt64 -> DatumInt64 . unInt64BE <$> get
   DatumTypeFloat -> DatumFloat . unFloatBE <$> get
   DatumTypeDouble -> DatumDouble . unDoubleBE <$> get
-  DatumTypeString -> DatumString . TSU.fromShortByteStringUnsafe . unTermBytes8 <$> get
-  DatumTypeBlob -> DatumBlob . unTermBytes8 <$> get
+  DatumTypeString -> DatumString . TSU.fromShortByteStringUnsafe . unTermBytes8 <$> getPad32 get
+  DatumTypeBlob -> fmap DatumBlob $ getPad32 $ do
+    w <- get @Word32BE
+    getByteString (fromIntegral w)
   DatumTypeTime -> DatumTime . NtpTime . unWord64BE <$> get
   DatumTypeMidi -> DatumMidi <$> get
 
 datumPutter :: Datum -> Put
-datumPutter = \case
+datumPutter = putPad32 datumSizer $ \case
   DatumInt32 x -> put (Int32BE x)
   DatumInt64 x -> put (Int64BE x)
   DatumFloat x -> put (FloatBE x)
   DatumDouble x -> put (DoubleBE x)
   DatumString x -> put (TermBytes8 (TS.toShortByteString x))
-  DatumBlob x -> put (TermBytes8 x)
+  DatumBlob x -> do
+    put @Word32BE (fromIntegral (BSS.length x))
+    putByteString x
   DatumTime x -> put (Word64BE (unNtpTime x))
   DatumMidi x -> put x
 
@@ -181,7 +183,7 @@ getNextNonPad = do
         else fmap Just (get @Word8)
 
 sigSizer :: Sig -> ByteCount
-sigSizer (Sig dts) = ByteCount (1 + Seq.length dts)
+sigSizer (Sig dts) = ByteCount (2 + Seq.length dts)
 
 instance Binary Sig where
   byteSize = byteSizePad32 sigSizer
@@ -194,10 +196,11 @@ instance Binary Sig where
           case datumTypeUnRep (w2c w) of
             Nothing -> fail ("Unknown data type rep: " ++ show w)
             Just dt -> go (acc :|> dt)
-        Nothing -> pure acc
+        Nothing -> acc <$ getExpect "pad" (get @Word8) 0
   put = putPad32 sigSizer $ \(Sig dts) -> do
     put commaByte
     for_ dts (put . c2w . datumTypeRep)
+    put @Word8 0
 
 data Msg = Msg !RawAddrPat !(Seq Datum)
   deriving stock (Eq, Ord, Show)
@@ -208,7 +211,7 @@ instance Arb I Msg where
 instance Binary Msg where
   byteSize (Msg r ds) =
     byteSize r
-      + pad32 (ByteCount (1 + Seq.length ds))
+      + pad32 (ByteCount (2 + Seq.length ds))
       + getSum (foldMap' (Sum . pad32 . datumSizer) ds)
   get = do
     r <- get @RawAddrPat
@@ -230,7 +233,7 @@ bundleTag :: TermBytes8
 bundleTag = TermBytes8 "#bundle"
 
 instance Binary Bundle where
-  byteSize (Bundle _ packs) = 12 + ByteCount (4 * Seq.length packs) + byteSizeFoldable packs
+  byteSize (Bundle _ packs) = 16 + ByteCount (4 * Seq.length packs) + byteSizeFoldable packs
   get = do
     getExpect "bundle tag" (get @TermBytes8) bundleTag
     t <- fmap NtpTime (get @Word64)

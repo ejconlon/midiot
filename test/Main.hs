@@ -63,6 +63,9 @@ genCases =
   , genRT "SysExDump" (arbI @MM.SysExDump)
   , genRT "RawAddrPat" (arbI @MOA.RawAddrPat)
   , genRT "PortMsg" (arbI @MO.PortMsg)
+  , genRT "Msg" (arbI @MO.Msg)
+  , genRT "Bundle" (arbI @MO.Bundle)
+  , genRT "Packet" (arbI @MO.Packet)
   ]
 
 testGenCases :: TestTree
