@@ -1,7 +1,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 
 module Midiot.Binary
-  ( BoundedBinary (..)
+  ( getTermText
+  , putTermText
+  , BoundedBinary (..)
   , MidiWord7 (..)
   , MidiInt7 (..)
   , MidiWord14 (..)
@@ -12,16 +14,28 @@ module Midiot.Binary
   )
 where
 
-import Control.DeepSeq (NFData)
 import Control.Newtype (Newtype (..))
-import Dahdit (Binary (..), StaticByteSized (..), Word16BE (..))
+import Dahdit (Binary (..), Get, Put, StaticByteSized (..), TermBytes8 (..), Word16BE (..), putText)
 import Data.Bits (Bits (..))
+import qualified Data.ByteString.Short as BSS
 import Data.Hashable (Hashable)
 import Data.Proxy (Proxy (..))
 import Data.ShortWord (Int7, Word7)
 import Data.ShortWord.TH (mkShortWord)
+import Data.Text (Text)
+import qualified Data.Text.Encoding as TE
 import Data.Word (Word16, Word32, Word8)
 import GHC.TypeLits (KnownSymbol, Symbol, symbolVal)
+
+getTermText :: Get Text
+getTermText = do
+  TermBytes8 bs <- get
+  case TE.decodeUtf8' (BSS.fromShort bs) of
+    Left err -> fail ("Invalid UTF-8: " ++ show err)
+    Right s -> pure s
+
+putTermText :: Text -> Put
+putTermText s = putText s *> put @Word8 0
 
 newtype BoundedBinary (s :: Symbol) a b = BoundedBinary {unBoundedBinary :: a}
 
@@ -39,7 +53,7 @@ instance
 
 newtype MidiWord7 = MidiWord7 {unMidiWord7 :: Word7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, Hashable)
 
 instance StaticByteSized MidiWord7 where
   type StaticSize MidiWord7 = 1
@@ -56,7 +70,7 @@ instance Binary MidiWord7 where
 
 newtype MidiInt7 = MidiInt7 {unMidiInt7 :: Int7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, Hashable)
 
 instance StaticByteSized MidiInt7 where
   type StaticSize MidiInt7 = 1
@@ -89,7 +103,7 @@ contractW14 v =
 
 newtype MidiWord14 = MidiWord14 {unMidiWord14 :: Word14}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, Hashable)
 
 instance StaticByteSized MidiWord14 where
   type StaticSize MidiWord14 = 2
@@ -102,7 +116,7 @@ instance Binary MidiWord14 where
 
 newtype MidiInt14 = MidiInt14 {unMidiInt14 :: Int14}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Bounded, Num, Real, Integral, Hashable)
 
 instance StaticByteSized MidiInt14 where
   type StaticSize MidiInt14 = 2
@@ -115,7 +129,7 @@ instance Binary MidiInt14 where
 
 newtype VarWord = VarWord {unVarWord :: Word32}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Integral, Real, NFData, Hashable)
+  deriving newtype (Eq, Ord, Enum, Num, Integral, Real, Hashable)
 
 instance Bounded VarWord where
   minBound = VarWord 0

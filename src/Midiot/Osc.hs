@@ -13,11 +13,11 @@ import Data.Int (Int32, Int64)
 import Data.Monoid (Sum (..))
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
-import Data.Text.Short (ShortText)
-import qualified Data.Text.Short as TS
-import qualified Data.Text.Short.Unsafe as TSU
+import Data.Text (Text)
+import qualified Data.Text as T
 import Data.Word (Word32, Word64, Word8)
 import GHC.Generics (Generic)
+import Midiot.Binary (getTermText, putTermText)
 import Midiot.Midi (ShortMsg)
 import Midiot.OscAddr (RawAddrPat (..))
 import Midiot.Pad (byteSizePad32, getPad32, pad32, putPad32)
@@ -85,7 +85,7 @@ data Datum
   | DatumInt64 !Int64
   | DatumFloat !Float
   | DatumDouble !Double
-  | DatumString !ShortText
+  | DatumString !Text
   | DatumBlob !ShortByteString
   | DatumTime !NtpTime
   | DatumMidi !PortMsg
@@ -97,7 +97,7 @@ datumSizer = \case
   DatumInt64 _ -> 8
   DatumFloat _ -> 4
   DatumDouble _ -> 8
-  DatumString x -> byteSize (TermBytes8 (TS.toShortByteString x))
+  DatumString x -> ByteCount (1 + T.length x)
   DatumBlob x -> ByteCount (4 + BSS.length x)
   DatumTime _ -> 8
   DatumMidi _ -> 4
@@ -108,7 +108,7 @@ datumGetter = \case
   DatumTypeInt64 -> DatumInt64 . unInt64BE <$> get
   DatumTypeFloat -> DatumFloat . unFloatBE <$> get
   DatumTypeDouble -> DatumDouble . unDoubleBE <$> get
-  DatumTypeString -> DatumString . TSU.fromShortByteStringUnsafe . unTermBytes8 <$> getPad32 get
+  DatumTypeString -> DatumString <$> getPad32 getTermText
   DatumTypeBlob -> fmap DatumBlob $ getPad32 $ do
     w <- get @Word32BE
     getByteString (fromIntegral w)
@@ -121,7 +121,7 @@ datumPutter = putPad32 datumSizer $ \case
   DatumInt64 x -> put (Int64BE x)
   DatumFloat x -> put (FloatBE x)
   DatumDouble x -> put (DoubleBE x)
-  DatumString x -> put (TermBytes8 (TS.toShortByteString x))
+  DatumString x -> putTermText x
   DatumBlob x -> do
     put @Word32BE (fromIntegral (BSS.length x))
     putByteString x

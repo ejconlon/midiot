@@ -5,27 +5,34 @@
 
 packages:
 - completed:
-    commit: 0dc1fa08418254a7ef21aaf5440e400b09e55289
+    commit: 2a19b73918f0480d43054de47a643595799cfa00
     git: git@github.com:ejconlon/dahdit.git
     name: dahdit
     pantry-tree:
-      sha256: 411c721e0119d03815f46670aa106deb07e1b3ad44366b3654719f096a324d56
+      sha256: 8b7a77ced137270521713dada9aed2764a9ea5b7eaf7d1aa80d565900b26f632
       size: 1690
     version: 0.4.0
   original:
-    commit: 0dc1fa08418254a7ef21aaf5440e400b09e55289
+    commit: 2a19b73918f0480d43054de47a643595799cfa00
     git: git@github.com:ejconlon/dahdit.git
 - completed:
-    commit: 45406c35878d0f3efc4cf29b4f3f2182391bc27c
-    git: git@github.com:ejconlon/data-sword.git
-    name: data-sword
+    commit: 87807f1fc076bf4445ead7fb4106dc80525ee85c
+    git: git@github.com:ejconlon/dahdit-test.git
+    name: dahdit-test
     pantry-tree:
-      sha256: fb466911a26b1fe3a5f7ca96141b20c282a4f2151de281d7a97f84f96abc58a7
-      size: 552
-    version: 0.2.0.4
+      sha256: 2628df7607bf66a8138ba157ca830bf6e40f12bc9408501114898185c15fb943
+      size: 841
+    version: 0.1.0
   original:
-    commit: 45406c35878d0f3efc4cf29b4f3f2182391bc27c
-    git: git@github.com:ejconlon/data-sword.git
+    commit: 87807f1fc076bf4445ead7fb4106dc80525ee85c
+    git: git@github.com:ejconlon/dahdit-test.git
+- completed:
+    hackage: data-sword-0.2.0.3@sha256:953cca4b4533a388df0ef17e06ac5530652d1d73decfe8b656242ccdf4b40999,1568
+    pantry-tree:
+      sha256: 60a104a3d3cbba2e099a9e7ce561322b2884f5323cf74fd876dfb59f265d803c
+      size: 439
+  original:
+    hackage: data-sword-0.2.0.3
 - completed:
     hackage: primitive-0.8.0.0@sha256:826bf2a702a26ef87532a135808abad69d74f70ead39f26c06d034b1f0537a19,3104
     pantry-tree:
@@ -47,17 +54,6 @@ packages:
       size: 3162
   original:
     hackage: falsify-0.1.1
-- completed:
-    commit: 2210b85c9a9c31b1de35158062a035a0ebdb9f2e
-    git: git@github.com:ejconlon/dahdit-test.git
-    name: dahdit-test
-    pantry-tree:
-      sha256: 101463cc1c9bceb9c09f3a39d2b312df6575ca30a4c60aff73f0df86cd8538a3
-      size: 841
-    version: 0.1.0
-  original:
-    commit: 2210b85c9a9c31b1de35158062a035a0ebdb9f2e
-    git: git@github.com:ejconlon/dahdit-test.git
 snapshots:
 - completed:
     sha256: dcf4fc28f12d805480ddbe8eb8c370e11db12f0461d0110a4240af27ac88d725

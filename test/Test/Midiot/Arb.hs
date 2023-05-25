@@ -10,7 +10,7 @@ import qualified Data.ByteString.Short as BSS
 import qualified Data.List.NonEmpty as NE
 import Data.Proxy (Proxy (..))
 import Data.ShortWord (Int7, Word7)
-import qualified Data.Text.Short as TS
+import qualified Data.Text as T
 import qualified Midiot.Binary as MB
 import qualified Midiot.Midi as MM
 import qualified Midiot.Osc as MO
@@ -45,7 +45,7 @@ instance Arb I MB.VarWord where
 
 -- TODO generate addr pat and serialize
 instance Arb I MOA.RawAddrPat where
-  arb _ _ = MOA.RawAddrPat . ("/" <>) . TS.intercalate "/" <$> genList 1 3 g
+  arb _ _ = MOA.RawAddrPat . ("/" <>) . T.intercalate "/" <$> genList 1 3 g
    where
     g = FG.choose (pure "x") (pure "y")
 
@@ -182,7 +182,7 @@ instance Arb I MO.Datum where
       , MO.DatumInt64 <$> genSigned
       , MO.DatumFloat <$> genFractional
       , MO.DatumDouble <$> genFractional
-      , MO.DatumString . TS.pack <$> genList 0 3 (FG.choose (pure 'x') (pure 'y'))
+      , MO.DatumString . T.pack <$> genList 0 3 (FG.choose (pure 'x') (pure 'y'))
       , MO.DatumBlob <$> genSBS 0 3
       , MO.DatumTime . MT.NtpTime <$> genUnsigned
       , MO.DatumMidi <$> arb p Proxy

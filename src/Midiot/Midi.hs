@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -48,7 +47,6 @@ module Midiot.Midi
   )
 where
 
-import Control.DeepSeq (NFData)
 import Control.Monad (unless, void)
 import Control.Newtype (Newtype)
 import Dahdit (Binary (..), BinaryRep (..), ByteCount (..), ExactBytes (..), Get, Put, PutM, StaticByteSized (..), ViaBinaryRep (..), ViaGeneric (..), Word16BE (..), Word32BE (..), byteSizeFoldable, getByteString, getExact, getExpect, getLookAhead, getRemainingSeq, getRemainingSize, getSeq, putByteString, putSeq)
@@ -67,7 +65,7 @@ import Midiot.Binary (BoundedBinary (..), MidiInt14 (..), MidiWord14 (..), MidiW
 
 newtype Channel = Channel {unChannel :: MidiWord7}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized)
+  deriving newtype (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized)
   deriving (Binary) via (BoundedBinary "Channel" Channel MidiWord7)
 
 instance Newtype Channel MidiWord7
@@ -79,62 +77,62 @@ instance Bounded Channel where
 newtype ChannelCount = ChannelCount {unChannelCount :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype Note = Note {unNote :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype Velocity = Velocity {unVelocity :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype ControlNum = ControlNum {unControlNum :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype ControlVal = ControlVal {unControlVal :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype Pressure = Pressure {unPressure :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype ProgramNum = ProgramNum {unProgramNum :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype PitchBend = PitchBend {unPitchBend :: MidiInt14}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype Song = Song {unSong :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype Position = Position {unPosition :: MidiWord14}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype ShortManf = ShortManf {unShortManf :: MidiWord7}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 newtype LongManf = LongManf {unLongManf :: Word16}
   deriving stock (Show)
   deriving newtype
-    (Eq, Ord, Enum, Num, Real, Integral, NFData, Hashable, StaticByteSized, Binary)
+    (Eq, Ord, Enum, Num, Real, Integral, Hashable, StaticByteSized, Binary)
 
 data Manf = ManfShort !ShortManf | ManfLong !LongManf
   deriving stock (Eq, Ord, Show, Generic)
@@ -166,14 +164,12 @@ data QuarterTimeUnit
   | QTUHoursLow
   | QTUHoursHigh
   deriving stock (Eq, Ord, Show, Enum, Bounded, Generic)
-  deriving anyclass (NFData)
 
 data QuarterTime = QuarterTime
   { qtUnit :: !QuarterTimeUnit
   , qtValue :: !Word4
   }
   deriving stock (Eq, Ord, Show, Generic)
-  deriving anyclass (NFData)
 
 instance StaticByteSized QuarterTime where
   type StaticSize QuarterTime = 1

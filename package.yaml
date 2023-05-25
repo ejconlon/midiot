@@ -21,12 +21,11 @@ dependencies:
 - primitive >= 0.8 && < 0.9
 - vector
 - hashable
-- deepseq
 - RtMidi >= 0.6.1.0 && < 0.7
-- data-sword >= 0.2.0.4 && < 0.3
+- data-sword >= 0.2.0.3 && < 0.3
 - newtype
 - primitive
-- text-short
+- text
 - time
 
 default-extensions:

@@ -69,12 +69,11 @@ library
     , bytestring
     , containers
     , dahdit ==0.4.*
-    , data-sword >=0.2.0.4 && <0.3
-    , deepseq
+    , data-sword >=0.2.0.3 && <0.3
     , hashable
     , newtype
     , primitive
-    , text-short
+    , text
     , time
     , vector
   default-language: Haskell2010
@@ -118,13 +117,12 @@ executable midiot-exe
     , bytestring
     , containers
     , dahdit ==0.4.*
-    , data-sword >=0.2.0.4 && <0.3
-    , deepseq
+    , data-sword >=0.2.0.3 && <0.3
     , hashable
     , midiot
     , newtype
     , primitive
-    , text-short
+    , text
     , time
     , vector
   default-language: Haskell2010
@@ -171,8 +169,7 @@ test-suite midiot-test
     , containers
     , dahdit ==0.4.*
     , dahdit-test
-    , data-sword >=0.2.0.4 && <0.3
-    , deepseq
+    , data-sword >=0.2.0.3 && <0.3
     , directory
     , falsify
     , filepath
@@ -182,7 +179,7 @@ test-suite midiot-test
     , primitive
     , tasty
     , tasty-hunit
-    , text-short
+    , text
     , time
     , vector
   default-language: Haskell2010

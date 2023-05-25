@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-
 module Midiot.Time
   ( TimeDelta (..)
   , timeDeltaFromFracSecs
@@ -24,7 +22,6 @@ module Midiot.Time
 where
 
 import Control.Concurrent (threadDelay)
-import Control.DeepSeq (NFData)
 import Data.Bits (Bits (..))
 import Data.Fixed (Fixed (..), Pico)
 import Data.Semigroup (Sum (..))
@@ -46,7 +43,6 @@ assertingNonNegative a =
 newtype TimeDelta = TimeDelta {unTimeDelta :: Word64}
   deriving stock (Eq, Show, Ord, Generic, Bounded)
   deriving newtype (Num)
-  deriving anyclass (NFData)
   deriving (Semigroup, Monoid) via (Sum Word64)
 
 -- | Return a 'TimeDelta' corresponding the the given number of fractional seconds.
@@ -96,7 +92,6 @@ awaitDelta m t = do
 
 newtype PosixTime = PosixTime {unPosixTime :: Word64}
   deriving stock (Eq, Show, Ord, Generic, Bounded)
-  deriving anyclass (NFData)
 
 e9W :: Word64
 e9W = 1000000000
@@ -116,7 +111,6 @@ instance TimeLike PosixTime where
 -- | Monotonic time in nanoseconds since some unspecified epoch (see 'getMonotonicTimeNs')
 newtype MonoTime = MonoTime {unMonoTime :: Word64}
   deriving stock (Eq, Show, Ord, Generic, Bounded)
-  deriving anyclass (NFData)
 
 monoTimeFromFracSecs :: (Real a, Show a) => a -> MonoTime
 monoTimeFromFracSecs d = MonoTime (round (1000000000 * toRational (assertingNonNegative d)))
@@ -138,7 +132,6 @@ instance TimeLike MonoTime where
 
 newtype NtpTime = NtpTime {unNtpTime :: Word64}
   deriving stock (Eq, Show, Ord, Generic, Bounded)
-  deriving anyclass (NFData)
 
 nanoWordToSplit :: Word64 -> (Word32, Word32)
 nanoWordToSplit j =
