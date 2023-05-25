@@ -25,7 +25,6 @@ source-repository head
 library
   exposed-modules:
       Midiot
-      Midiot.Arb
       Midiot.Binary
       Midiot.Iface
       Midiot.Midi
@@ -70,10 +69,8 @@ library
     , bytestring
     , containers
     , dahdit ==0.4.*
-    , dahdit-test
     , data-sword >=0.2.0.4 && <0.3
     , deepseq
-    , falsify
     , hashable
     , newtype
     , primitive
@@ -121,10 +118,8 @@ executable midiot-exe
     , bytestring
     , containers
     , dahdit ==0.4.*
-    , dahdit-test
     , data-sword >=0.2.0.4 && <0.3
     , deepseq
-    , falsify
     , hashable
     , midiot
     , newtype
@@ -138,6 +133,7 @@ test-suite midiot-test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
+      Test.Midiot.Arb
       Paths_midiot
   hs-source-dirs:
       test

@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Midiot.OscAddr
   ( RawAddrPat (..)
   )
@@ -17,9 +15,7 @@ import Data.Text.Short (ShortText)
 import qualified Data.Text.Short as TS
 import qualified Data.Text.Short.Unsafe as TSU
 import Data.Word (Word8)
-import Midiot.Arb (Arb (..), I, genList)
 import Midiot.Pad (byteSizePad32, getPad32, putPad32)
-import qualified Test.Falsify.Generator as FG
 
 slashByte :: Word8
 slashByte = c2w '/'
@@ -169,12 +165,6 @@ matchAddr (AddrPat patParts) (Addr parts) =
 newtype RawAddrPat = RawAddrPat {unRawAddrPat :: ShortText}
   deriving stock (Show)
   deriving newtype (Eq, Ord, IsString)
-
--- TODO generate addr pat and serialize
-instance Arb I RawAddrPat where
-  arb _ _ = RawAddrPat . ("/" <>) . TS.intercalate "/" <$> genList 1 3 g
-   where
-    g = FG.choose (pure "x") (pure "y")
 
 rawAddrPatSizer :: RawAddrPat -> ByteCount
 rawAddrPatSizer = ByteCount . succ . TS.length . unRawAddrPat

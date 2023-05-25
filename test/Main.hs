@@ -6,7 +6,6 @@ import Dahdit (Binary (..), ByteCount (..), GetError, StaticByteSized (..), deco
 import qualified Data.ByteString.Char8 as BS
 import Data.Proxy (Proxy (..))
 import qualified Data.Sequence as Seq
-import Midiot.Arb (arbI, genSBS)
 import Midiot.Binary
   ( MidiInt14
   , MidiInt7
@@ -21,6 +20,7 @@ import System.Directory (listDirectory)
 import System.FilePath (takeExtension, (</>))
 import Test.Dahdit.Tasty (FileExpect (..), RT, UnitExpect (..), fileRT, genRT, staticRT, testRT, unitRT)
 import Test.Falsify.Generator (Gen)
+import Test.Midiot.Arb (arbI)
 import Test.Tasty (TestTree, defaultMain, testGroup)
 
 proxyFor :: f a -> Proxy a
@@ -56,7 +56,7 @@ genCases =
   , staRT "LiveStatus" (arbI @MM.LiveStatus)
   , staRT "RecStatus" (arbI @MM.RecStatus)
   , staRT "ShortStatus" (arbI @MM.ShortStatus)
-  , genRT "MetaString" (fmap MM.MetaString (genSBS 0 255))
+  , genRT "MetaString" (arbI @MM.MetaString)
   , genRT "MetaData" (arbI @MM.MetaData)
   , genRT "LiveMsg" (arbI @MM.LiveMsg)
   , genRT "RecMsg" (arbI @MM.RecMsg)

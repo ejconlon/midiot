@@ -11,7 +11,6 @@ import qualified Data.ByteString.Short as BSS
 import Data.Foldable (foldMap', for_)
 import Data.Int (Int32, Int64)
 import Data.Monoid (Sum (..))
-import Data.Proxy (Proxy (..))
 import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Text.Short (ShortText)
@@ -19,12 +18,10 @@ import qualified Data.Text.Short as TS
 import qualified Data.Text.Short.Unsafe as TSU
 import Data.Word (Word32, Word64, Word8)
 import GHC.Generics (Generic)
-import Midiot.Arb (Arb (..), ArbEnum (..), ArbGeneric (..), I, genFractional, genList, genSBS, genSeq, genSigned, genUnsigned)
 import Midiot.Midi (ShortMsg)
 import Midiot.OscAddr (RawAddrPat (..))
 import Midiot.Pad (byteSizePad32, getPad32, pad32, putPad32)
 import Midiot.Time (NtpTime (..))
-import qualified Test.Falsify.Generator as FG
 
 data DatumType
   = DatumTypeInt32
@@ -36,7 +33,6 @@ data DatumType
   | DatumTypeTime
   | DatumTypeMidi
   deriving stock (Eq, Ord, Show, Enum, Bounded)
-  deriving (Arb I) via (ArbEnum DatumType)
 
 datumTypeRep :: DatumType -> Char
 datumTypeRep = \case
@@ -63,11 +59,10 @@ datumTypeUnRep = \case
 
 newtype Port = Port {unPort :: Word8}
   deriving stock (Show)
-  deriving newtype (Eq, Ord, Binary, StaticByteSized, Arb I)
+  deriving newtype (Eq, Ord, Binary, StaticByteSized)
 
 data PortMsg = PortMsg !Port !ShortMsg
   deriving stock (Eq, Ord, Show, Generic)
-  deriving (Arb I) via (ArbGeneric I PortMsg)
 
 instance StaticByteSized PortMsg where
   type StaticSize PortMsg = 4
@@ -95,20 +90,6 @@ data Datum
   | DatumTime !NtpTime
   | DatumMidi !PortMsg
   deriving stock (Eq, Ord, Show)
-
-instance Arb I Datum where
-  arb p _ =
-    foldr1
-      FG.choose
-      [ DatumInt32 <$> genSigned
-      , DatumInt64 <$> genSigned
-      , DatumFloat <$> genFractional
-      , DatumDouble <$> genFractional
-      , DatumString . TS.pack <$> genList 0 3 (FG.choose (pure 'x') (pure 'y'))
-      , DatumBlob <$> genSBS 0 3
-      , DatumTime . NtpTime <$> genUnsigned
-      , DatumMidi <$> arb p Proxy
-      ]
 
 datumSizer :: Datum -> ByteCount
 datumSizer = \case
@@ -162,9 +143,6 @@ newtype Sig = Sig {unSig :: Seq DatumType}
   deriving stock (Show)
   deriving newtype (Eq, Ord)
 
-instance Arb I Sig where
-  arb p _ = fmap Sig (genSeq 0 3 (arb p Proxy))
-
 commaByte :: Word8
 commaByte = c2w ','
 
@@ -205,9 +183,6 @@ instance Binary Sig where
 data Msg = Msg !RawAddrPat !(Seq Datum)
   deriving stock (Eq, Ord, Show)
 
-instance Arb I Msg where
-  arb p _ = Msg <$> arb p Proxy <*> genSeq 0 3 (arb p Proxy)
-
 instance Binary Msg where
   byteSize (Msg r ds) =
     byteSize r
@@ -225,9 +200,6 @@ instance Binary Msg where
 
 data Bundle = Bundle !NtpTime !(Seq Packet)
   deriving stock (Eq, Ord, Show)
-
-instance Arb I Bundle where
-  arb p _ = Bundle <$> (NtpTime <$> genUnsigned) <*> genSeq 0 3 (arb p Proxy)
 
 bundleTag :: TermBytes8
 bundleTag = TermBytes8 "#bundle"
@@ -252,7 +224,6 @@ data Packet
   = PacketMsg !Msg
   | PacketBundle !Bundle
   deriving stock (Eq, Ord, Show, Generic)
-  deriving (Arb I) via (ArbGeneric I Packet)
 
 instance Binary Packet where
   byteSize = \case
