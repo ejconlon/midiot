@@ -1,18 +1,7 @@
-resolver: lts-20.22
+resolver: https://raw.githubusercontent.com/ejconlon/stack-resolvers/master/head.yaml
 
 ghc-options:
   "$everything": -haddock
 
 packages:
 - .
-
-extra-deps:
-- git: git@github.com:ejconlon/dahdit.git
-  commit: 2a19b73918f0480d43054de47a643595799cfa00
-- git: git@github.com:ejconlon/dahdit-test.git
-  commit: 87807f1fc076bf4445ead7fb4106dc80525ee85c
-- data-sword-0.2.0.3
-- primitive-0.8.0.0
-- RtMidi-0.6.1.0
-- falsify-0.1.1
-
