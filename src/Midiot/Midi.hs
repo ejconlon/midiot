@@ -464,9 +464,7 @@ instance Binary ShortStatus where
             RtStatusSystemReset -> 0x7
       in  put @Word8 (0xF8 .|. x)
 
--- TODO change to ShortText
-
--- | A string prefixed by a single-byte length
+-- | A byte string prefixed by a single-byte length
 newtype MetaString = MetaString {unMetaString :: ShortByteString}
   deriving stock (Show)
   deriving newtype (Eq, Ord, IsString)
@@ -475,8 +473,8 @@ instance Binary MetaString where
   byteSize = succ . fromIntegral . BSS.length . unMetaString
   get = do
     len <- get @Word8
-    bss <- getByteString (fromIntegral len)
-    pure (MetaString bss)
+    s <- getByteString (fromIntegral len)
+    pure (MetaString s)
   put (MetaString s) = do
     let len = BSS.length s
     if len > 255
