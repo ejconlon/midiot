@@ -26,7 +26,6 @@ library
   exposed-modules:
       Midiot
       Midiot.Binary
-      Midiot.Iface
       Midiot.Midi
       Midiot.Osc
       Midiot.OscAddr
@@ -64,18 +63,17 @@ library
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds
   build-depends:
-      RtMidi >=0.6.1.0 && <0.7
-    , base >=4.12 && <5
-    , bytestring
-    , containers
-    , dahdit ==0.4.*
+      base >=4.12 && <5
+    , bytestring ==0.11.*
+    , containers ==0.6.*
+    , dahdit >=0.4.1 && <0.5
     , data-sword >=0.2.0.3 && <0.3
-    , hashable
-    , newtype
-    , primitive
-    , text
-    , time
-    , vector
+    , hashable ==1.4.*
+    , newtype ==0.2.*
+    , primitive >=0.7 && <0.9
+    , text >=1.2 && <2.1
+    , time ==1.11.*
+    , vector ==0.12.*
   default-language: Haskell2010
 
 executable midiot-exe
@@ -112,19 +110,18 @@ executable midiot-exe
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      RtMidi >=0.6.1.0 && <0.7
-    , base >=4.12 && <5
-    , bytestring
-    , containers
-    , dahdit ==0.4.*
+      base >=4.12 && <5
+    , bytestring ==0.11.*
+    , containers ==0.6.*
+    , dahdit >=0.4.1 && <0.5
     , data-sword >=0.2.0.3 && <0.3
-    , hashable
+    , hashable ==1.4.*
     , midiot
-    , newtype
-    , primitive
-    , text
-    , time
-    , vector
+    , newtype ==0.2.*
+    , primitive >=0.7 && <0.9
+    , text >=1.2 && <2.1
+    , time ==1.11.*
+    , vector ==0.12.*
   default-language: Haskell2010
 
 test-suite midiot-test
@@ -163,23 +160,22 @@ test-suite midiot-test
       TypeFamilies
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wpartial-fields -Wredundant-constraints -fno-warn-unused-top-binds -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      RtMidi >=0.6.1.0 && <0.7
-    , base >=4.12 && <5
-    , bytestring
-    , containers
-    , dahdit ==0.4.*
+      base >=4.12 && <5
+    , bytestring ==0.11.*
+    , containers ==0.6.*
+    , dahdit >=0.4.1 && <0.5
     , dahdit-test
     , data-sword >=0.2.0.3 && <0.3
     , directory
     , falsify
     , filepath
-    , hashable
+    , hashable ==1.4.*
     , midiot
-    , newtype
-    , primitive
+    , newtype ==0.2.*
+    , primitive >=0.7 && <0.9
     , tasty
     , tasty-hunit
-    , text
-    , time
-    , vector
+    , text >=1.2 && <2.1
+    , time ==1.11.*
+    , vector ==0.12.*
   default-language: Haskell2010
