@@ -8,6 +8,7 @@ import Dahdit (Binary (..), ByteCount (..), DoubleBE (..), FloatBE (..), Get, In
 import Data.ByteString.Internal (c2w, w2c)
 import Data.ByteString.Short (ShortByteString)
 import qualified Data.ByteString.Short as BSS
+import Data.Coerce (coerce)
 import Data.Foldable (foldMap', for_)
 import Data.Int (Int32, Int64)
 import Data.Monoid (Sum (..))
@@ -15,7 +16,7 @@ import Data.Sequence (Seq (..))
 import qualified Data.Sequence as Seq
 import Data.Text (Text)
 import qualified Data.Text as T
-import Data.Word (Word32, Word64, Word8)
+import Data.Word (Word8)
 import GHC.Generics (Generic)
 import Midiot.Binary (getTermText, putTermText)
 import Midiot.Midi (ShortMsg)
@@ -208,16 +209,16 @@ instance Binary Bundle where
   byteSize (Bundle _ packs) = 16 + ByteCount (4 * Seq.length packs) + byteSizeFoldable packs
   get = do
     getExpect "bundle tag" (get @TermBytes8) bundleTag
-    t <- fmap NtpTime (get @Word64)
+    t <- fmap (NtpTime . coerce) (get @Word64BE)
     packs <- getRemainingSeq $ do
-      sz <- fmap (ByteCount . fromIntegral) (get @Word32)
+      sz <- fmap (ByteCount . fromIntegral) (get @Word32BE)
       getExact sz get
     pure (Bundle t packs)
   put (Bundle (NtpTime k) packs) = do
     put bundleTag
-    put k
+    put @Word64BE (coerce k)
     for_ packs $ \pack -> do
-      put @Word32 (fromIntegral (unByteCount (byteSize pack)))
+      put @Word32BE (fromIntegral (byteSize pack))
       put pack
 
 data Packet
